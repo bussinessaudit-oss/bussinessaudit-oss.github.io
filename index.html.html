@@ -562,7 +562,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v39';
+const APP_VERSION='v40';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];
 const TERMINALS=[{id:'T2',name:'Terminal 2',root:'audit_t2'},{id:'T3',name:'Terminal 3',root:'audit_v2'},{id:'T4',name:'Terminal 4',root:'audit_t4'},{id:'T5',name:'Terminal 5',root:'audit_t5'},{id:'HEX',name:'Heathrow Express',root:'audit_hex'}];
@@ -1119,4 +1119,83 @@ function renderLogin(){
     return;
   }
   if(card.dataset.mode==='signin'&&$('li-user')){ const sel=$('li-user'), cur=sel.value; sel.innerHTML=userOptions(users); if(users.some(u=>u.id===cur)) sel.value=cur; return; }
-  card.dataset.
+  card.dataset.mode='signin';
+  card.innerHTML=`<h2>Sign in</h2>
+    <div class="field"><label class="label" for="li-user">Your name</label><select class="input" id="li-user">${userOptions(users)}</select></div>
+    <div class="field"><label class="label" for="li-pin">PIN</label><input class="input" id="li-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" onkeydown="if(event.key==='Enter')signInLocal()"></div>
+    <button class="btn btn-act btn-lg btn-full" onclick="signInLocal()">Sign in</button><div class="login-msg" id="li-msg"></div>${changeTermBtn()}`;
+}
+
+/* v40 repair layer: the supplied file ended mid-function. These small, local-first
+   handlers restore the app shell and add safe, useful power-user tools without
+   requiring Firebase to be online. */
+function officialWarning(){ return ''; }
+function showTermPicker(){
+  const card=$('login-card'); card.dataset.mode='term';
+  card.innerHTML=`<h2>Choose terminal</h2><p class="muted" style="margin-bottom:12px">Select the site you are auditing on this device.</p><div class="term-grid">${TERMINALS.map(t=>`<button class="term-btn" onclick="chooseTerminal('${t.id}')"><b>${esc(t.id)}</b><span>${esc(t.name)}</span></button>`).join('')}</div>`;
+}
+function chooseTerminal(id){ try{ localStorage.setItem('t3a_term',id); }catch(e){} location.reload(); }
+function switchTerminal(){ showTermPicker(); }
+function createOwner(){
+  const name=($('su-name')?.value||'').trim(), pin=$('su-pin')?.value||'', pin2=$('su-pin2')?.value||'';
+  if(name.length<2) return toast('Enter your full name',true);
+  if(!/^\d{4,6}$/.test(pin)||pin!==pin2) return toast('PIN must match and contain 4–6 digits',true);
+  const u={id:newId('u'),name,role:'admin',active:true,salt:newId('s'),pinHash:hashPin('local',pin)};
+  put('users',u); CUR_UID=u.id; lsSet(LK('t3a_uid'),u.id); enterApp();
+}
+function signInLocal(){
+  const u=ST.users.find(x=>x.id===$('li-user')?.value), pin=$('li-pin')?.value||'';
+  if(!u||hashPin('local',pin)!==u.pinHash) return toast('Incorrect PIN',true);
+  CUR_UID=u.id; lsSet(LK('t3a_uid'),u.id); enterApp();
+}
+function enterApp(){
+  $('login').classList.remove('open'); $('hdr').classList.remove('hide'); $('nav').classList.remove('hide');
+  updateShell(); navigate('pg-home');
+}
+function updateShell(){
+  const u=me(); $('me-chip').textContent=initials(u?.name); $('hdr-plate').textContent=TID; $('hdr-title').textContent=(TERM?.name||'Audit')+' Audit'; $('hdr-sub').textContent='Cleaning quality control';
+  $('nav-admin').hidden=!isAdmin(); $('nav-dash').hidden=!isManager();
+}
+function auditItemsFor(a){ return (a?.items||[]); }
+function scoreAudit(a){ const items=auditItemsFor(a), p=items.filter(x=>x.status==='pass').length, f=items.filter(x=>x.status==='fail').length; return {p,f,n:items.length-p-f,pct:p+f?Math.round(p/(p+f)*100):0}; }
+function renderHome(){
+  $('hello').textContent=`Hello, ${me()?.name||'auditor'}`; $('today-date').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  $('today-strip').innerHTML=`<div><b>${ST.areas.length}</b>areas</div><div><b>${visibleSessions().length}</b>rounds</div><div><b>${visibleAudits().length}</b>audits</div>`;
+  $('round-card').innerHTML=`<div class="round-card internal"><h3>Advanced command centre</h3><p>Fast actions, live quality signals and offline-safe records.</p><div class="acts"><button class="btn btn-brand" onclick="navigate('pg-dash')">Open insights</button><button class="btn" onclick="exportAuditCSV()">Export CSV</button></div></div>`;
+  const areas=ST.areas.length?ST.areas:SEED_AREAS.map((a,i)=>({...a,id:'demo'+i}));
+  $('zone-list').innerHTML=ZONES.map(z=>{const n=areas.filter(a=>+a.zone===z.id).length;return `<button class="zone" onclick="curZone=${z.id};navigate('pg-zone')"><span class="plate">${z.id}</span><span class="zmain"><span class="zt">${esc(z.name)}</span><span class="zs">${esc(z.sub)} · ${n} areas</span><span class="bar"><i style="width:${n?Math.min(100,n*8):0}%"></i></span></span>${IC.chev}</button>`}).join('');
+}
+function renderZone(){
+  const z=zoneOf(curZone); $('zone-head').innerHTML=`<div class="loc-head"><span class="plate">${z.id}</span><div><h1>${esc(z.name)}</h1><p class="pg-sub">${esc(z.sub)}</p></div></div>`;
+  const areas=ST.areas.filter(a=>+a.zone===z.id); $('tier-list').innerHTML=TIERS.map(t=>{const rows=areas.filter(a=>a.tier===t.id);return `<button class="tier" style="--tc:${t.c};--ts:${t.s}" onclick="curTier='${t.id}';navigate('pg-tier')"><span class="medal">${rows.length}</span><span class="tmain"><span class="tt">${t.label}</span><span class="tm">${rows.length} configured areas</span></span>${IC.chev}</button>`}).join('')||`<p class="empty-note">No areas configured yet.</p>`;
+}
+function renderTier(){
+  const t=tierOf(curTier), areas=ST.areas.filter(a=>+a.zone===curZone&&a.tier===t.id); $('tier-head').innerHTML=`<div class="loc-head"><span class="plate">${curZone}</span><div><h1>${esc(t.label)}</h1><p class="pg-sub">Tap an area to start an audit.</p></div></div>`;
+  $('tier-tools').innerHTML=`<div class="panel"><button class="btn btn-act btn-full" onclick="startQuickAudit()">＋ Start quick audit</button></div>`;
+  $('tier-body').innerHTML=areas.map(a=>`<div class="list"><div class="row"><span class="ico">${TYPE_ICO[a.type]||'📋'}</span><span class="main"><span class="t">${esc(a.name)}</span><span class="s">${(a.items||[]).length} checks · ${lastAuditFor(a.id)?fmtDate(lastAuditFor(a.id).endedAt):'never audited'}</span></span><button class="btn btn-sm btn-brand" onclick="startAudit('${encArg(a.id)}')">Audit</button></div></div>`).join('')||`<p class="empty-note">No areas in this tier yet. Add them from Admin.</p>`;
+}
+function renderSessions(){
+  $('rep-sub').textContent=`${visibleSessions().length} saved rounds · offline-safe`; $('rep-tabs').innerHTML=`<button class="on">All rounds</button><button onclick="exportAuditCSV()">Export CSV</button><button onclick="downloadBackup()">Backup</button>`;
+  $('sessions-list').innerHTML=visibleSessions().slice().reverse().map(s=>{const as=s.audits||[], total=as.reduce((n,a)=>n+scoreAudit(a).pct,0), pct=as.length?Math.round(total/as.length):0;return `<div class="list"><div class="sess"><div class="ring" style="--rc:${pctHex(pct)};--sc:${pct}"><strong>${pct}%</strong></div><div class="main"><div class="t">${esc(MODE_LABEL[s.mode]||'Audit round')}</div><div class="s">${fmtDT(s.start)} · ${as.length} audits · ${esc(s.ownerName||'')}</div></div></div></div>`}).join('')||`<p class="empty-note">No saved rounds yet.</p>`;
+}
+function renderDash(){
+  const as=visibleAudits(), scores=as.map(scoreAudit), avg=scores.length?Math.round(scores.reduce((n,x)=>n+x.pct,0)/scores.length):0, fails=scores.reduce((n,x)=>n+x.f,0), unresolved=as.filter(a=>a.followUpStatus!=='resolved'&&a.items?.some(i=>i.status==='fail')).length;
+  $('dash-body').innerHTML=`<div class="kpis"><div class="kpi"><b>${avg}%</b><span>Average quality</span></div><div class="kpi"><b>${fails}</b><span>Failed checks</span></div><div class="kpi"><b>${unresolved}</b><span>Open follow-ups</span></div></div><div class="panel" style="margin-top:12px"><h2 class="sec" style="margin-top:0">Action centre</h2><div class="issue"><span>Audits completed</span><b>${as.length}</b></div><div class="issue"><span>Areas needing attention</span><b class="${unresolved?'age-amber':''}">${unresolved}</b></div><div class="issue"><span>Sync queue</span><b>${pendingCount()}</b></div><button class="btn btn-brand btn-full" style="margin-top:12px" onclick="downloadBackup()">Download encrypted-ready backup JSON</button></div>`;
+}
+function renderAdmin(){ $('admin-body').innerHTML=`<div class="panel"><h2 class="sec" style="margin-top:0">Operations tools</h2><p class="muted">The app is running in local-first mode. Data remains on this device until cloud sync is available.</p><div class="acts" style="display:grid;gap:8px;margin-top:12px"><button class="btn btn-brand btn-full" onclick="downloadBackup()">Download backup</button><button class="btn btn-full" onclick="exportAuditCSV()">Export audit CSV</button><button class="btn btn-danger btn-full" onclick="clearLocalDrafts()">Clear saved draft</button></div></div>`; }
+function renderAccount(){ $('account-body').innerHTML=`<div class="panel"><div class="kv"><span>Signed in as</span><b>${esc(me()?.name||'')}</b></div><div class="kv"><span>Role</span><b>${ROLE_LABEL[role()]||role()}</b></div><div class="kv"><span>Terminal</span><b>${esc(TERM?.name||TID)}</b></div><button class="btn btn-danger btn-full" style="margin-top:12px" onclick="showLogin()">Sign out</button></div>`; }
+function startQuickAudit(){ const a=ST.areas.find(x=>+x.zone===curZone&&x.tier===curTier); if(a) startAudit(a.id); else toast('Add an area first',true); }
+function startAudit(id){ const a=areaById(decodeURIComponent(id)); if(!a) return toast('Area not found',true); const s={id:newId('s'),start:new Date().toISOString(),ownerId:CUR_UID,ownerName:me()?.name||'',mode:'internal'}; const audit={id:newId('a'),sessionId:s.id,areaId:a.id,areaName:a.name,items:(a.items||[]).map(q=>({q,status:'none',reasons:[]}))}; put('sessions',s);put('audits',audit);linkAudits();toast('Audit started. Finish it from Reports.');navigate('pg-reports'); }
+function exportAuditCSV(){ const rows=[['Round','Area','Date','Pass','Fail','N/A','Score']]; visibleAudits().forEach(a=>{const s=ST.sessions.find(x=>x.id===a.sessionId),q=scoreAudit(a);rows.push([s?.id||'',a.areaName||'',fmtDT(a.endedAt||s?.start),q.p,q.f,q.n,q.pct+'%']);}); const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'); downloadFile('heathrow-audit-export.csv',csv,'text/csv'); }
+function downloadBackup(){ downloadFile('heathrow-audit-backup.json',JSON.stringify({version:APP_VERSION,exportedAt:new Date().toISOString(),data:ST},null,2),'application/json'); }
+function downloadFile(name,data,type){ const b=new Blob([data],{type}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),500); }
+function clearLocalDrafts(){ if(typeof draft!=='undefined') draft={targetId:null,results:{},startedAt:''}; if(typeof clearDraft==='function') clearDraft(); toast('Draft cleared'); }
+async function boot(){
+  await loadLocal(); linkAudits();
+  if(TERM) initCloud();
+  if(CUR_UID&&me()) enterApp(); else showLogin();
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+</script>
+</body>
+</html>
