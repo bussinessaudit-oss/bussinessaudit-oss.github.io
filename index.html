@@ -512,6 +512,35 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
   </div>
 </div>
 
+<!-- ═══ Send the report after signing ═══ -->
+<div class="modal" id="modal-send">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sd-h">
+    <div class="sheet-h"><h3 id="sd-h">Send the report</h3><button class="x" onclick="closeModal('modal-send')" aria-label="Close">×</button></div>
+    <div class="note" id="sd-summary"></div>
+    <p class="muted" style="font-size:14px;margin-bottom:8px">The audit is finished only when the report is sent.</p>
+    <label class="label" for="sd-to">Send to (separate emails with commas)</label>
+    <textarea class="input" id="sd-to" rows="2" inputmode="email" autocomplete="off" style="min-height:64px"></textarea>
+    <div id="sd-actions"></div>
+    <div id="sd-status" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- ═══ Admin: correct a round ═══ -->
+<div class="modal" id="modal-fix">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fx-h">
+    <div class="sheet-h"><h3 id="fx-h">Correct this round</h3><button class="x" onclick="closeModal('modal-fix')" aria-label="Close">×</button></div>
+    <input type="hidden" id="fx-id">
+    <p class="muted" style="font-size:13px;margin-bottom:8px">Every correction is recorded in the activity log with your name and reason.</p>
+    <div class="grid2"><div class="field"><label class="label" for="fx-start">Started</label><input class="input" id="fx-start" type="datetime-local"></div>
+    <div class="field"><label class="label" for="fx-end">Finished</label><input class="input" id="fx-end" type="datetime-local"></div></div>
+    <div class="field"><label class="label" for="fx-reason">Reason for the change</label><input class="input" id="fx-reason" autocomplete="off" placeholder="e.g. phone clock was wrong"></div>
+    <button class="btn btn-brand btn-full" onclick="saveFixTime()">Save new times</button>
+    <h3 style="font-size:17px;margin:16px 0 6px">Audits in this round</h3>
+    <div id="fx-audits"></div>
+    <button class="btn btn-danger btn-full" style="margin-top:12px" onclick="delRoundFix()">Delete the whole round</button>
+  </div>
+</div>
+
 <!-- ═══ Email a round ═══ -->
 <div class="modal" id="modal-email">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="em-h">
@@ -535,7 +564,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v37';
+const APP_VERSION='v38';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -742,7 +771,26 @@ function normalize(c,r){
 function serialize(c,r){ if(c==='sessions'){ const {audits,...rest}=r; return rest; } return r; }
 // Link each round to its audits (kept as s.audits for the reports) and index the latest audit per area
 let LAST={};
+// Admin corrections are kept as entries in the activity log (they cannot be edited or deleted),
+// then applied here: removed rounds/audits disappear from every report, changed times are used everywhere.
+const localDay=iso=>{ const d=new Date(iso); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+function applyFixes(){
+  const fx=(ST.logs||[]).filter(l=>l&&l.fix&&l.fix.id).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  if(!fx.length) return;
+  const delS=new Set(), delA=new Set(), time={};
+  fx.forEach(l=>{ const f=l.fix; if(f.type==='del-session') delS.add(f.id); else if(f.type==='del-audit') delA.add(f.id); else if(f.type==='time') time[f.id]={...f,lid:l.id}; });
+  if(delS.size||delA.size){ ST.sessions=ST.sessions.filter(s=>!delS.has(s.id)); ST.audits=ST.audits.filter(a=>!delA.has(a.id)&&!delS.has(a.sessionId)); }
+  Object.values(time).forEach(f=>{
+    const s=ST.sessions.find(x=>x.id===f.id); if(!s||s._fix===f.lid) return;
+    if(!s._origStart) s._origStart=s.start;
+    const delta=new Date(f.start)-new Date(s._origStart); if(!Number.isFinite(delta)) return;
+    s.start=f.start; if(f.end) s.end=f.end; s._fix=f.lid;
+    ST.audits.filter(a=>a.sessionId===s.id).forEach(a=>{ if(a._fix===f.lid) return; if(!a._origEnd) a._origEnd=a.endedAt||s._origStart;
+      const t=new Date(new Date(a._origEnd).getTime()+delta); if(!Number.isFinite(t.getTime())) return; a.endedAt=t.toISOString(); a.date=localDay(a.endedAt); a._fix=f.lid; });
+  });
+}
 function linkAudits(){
+  applyFixes();
   const m={}; LAST={};
   ST.audits.forEach(a=>{ (m[a.sessionId]=m[a.sessionId]||[]).push(a); const l=LAST[a.areaId]; if(!l||(a.endedAt||'')>(l.endedAt||'')) LAST[a.areaId]=a; });
   ST.sessions.forEach(s=>{ s.audits=(m[s.id]||[]).sort((x,y)=>(x.endedAt||'').localeCompare(y.endedAt||'')); });
@@ -1198,13 +1246,14 @@ function updateShell(){
   $('nav-admin').hidden=!isAdmin(); $('nav-dash').hidden=!isAdmin();
   updateRoundBar(); setSync();
 }
-function openSession(){ const m=me(); return m?ST.sessions.find(s=>s.status==='open'&&s.ownerId===m.id)||null:null; }
+function openSession(){ const m=me(); return m?ST.sessions.find(s=>(s.status==='open'||s.status==='signed')&&s.ownerId===m.id)||null:null; }
 function sessionMode(s){ return s.mode||((s.audits||[]).some(a=>a.type==='client')?'client':'internal'); }
 function updateRoundBar(){
   const s=openSession(), bar=$('roundbar');
   if(!s||$('login').classList.contains('open')){ document.body.classList.remove('has-round'); bar.innerHTML=''; return; }
   const n=(s.audits||[]).length, client=s.mode==='client';
   document.body.classList.add('has-round'); bar.className=client?'client':'internal';
+  if(s.status==='signed'){ bar.innerHTML=`<div class="rb-text"><b>Report not sent yet</b><small>Signed. Send the report to finish this audit.</small></div><button class="btn btn-sm" onclick="openSendSheet('${s.id}')">Send report</button>`; return; }
   bar.innerHTML=`<div class="rb-text"><b>${client?'Client audit':'Internal audit'}</b>${client&&s.clientName?' with '+esc(s.clientName):''}<small>${n} ${n===1?'area':'areas'} audited in this round</small></div><button class="btn btn-sm" onclick="openSignModal()">Finish and sign</button>`;
 }
 async function renderLogos(elId){
@@ -1249,7 +1298,9 @@ function renderHome(){
   $('hello').textContent=`${greeting()}, ${String(m.name).split(' ')[0]}`;
   $('today-date').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const s=openSession();
-  if(s){
+  if(s&&s.status==='signed'){
+    $('round-card').innerHTML=`<div class="round-card"><span class="chip chip-open">Report not sent</span><h3 style="margin-top:8px">Send the report to finish</h3><p>Your audit is signed. It stays open until the report is sent.</p><div class="acts"><button class="btn btn-act btn-lg" onclick="openSendSheet('${s.id}')">Send report</button></div></div>`;
+  } else if(s){
     const n=(s.audits||[]).length, client=s.mode==='client';
     $('round-card').innerHTML=`<div class="round-card ${client?'client':'internal'}"><span class="chip ${client?'chip-client':'chip-internal'}">${client?'Client audit':'Internal audit'} running</span>
       <h3 style="margin-top:8px">${client?'With '+esc(s.clientName)+(s.clientOrg?', '+esc(s.clientOrg):''):'Started at '+fmtTime(s.start)}</h3>
@@ -1545,6 +1596,7 @@ function openAudit(targetId){
   if(!me()) return;
   const tg=targetById(targetId); if(!tg){ toast('That area no longer exists',true); return; }
   const s=openSession(); if(!s){ askStartRound(null,targetId); return; }
+  if(s.status==='signed'){ toast('Send the report for your signed audit first',true); openSendSheet(s.id); return; }
   const pg=document.querySelector('.page.active'); backTo=pg&&pg.id!=='pg-audit'?pg.id:'pg-tier';
   if(pg&&pg.id==='pg-audit'&&draftAnswered()&&!confirm('Leave without saving? The answers on this audit will be lost.')) return;
   draft={targetId,results:{},startedAt:new Date().toISOString()}; clearDraft();
@@ -1672,6 +1724,7 @@ function clearPad(id){ const c=$(id); c.getContext('2d').clearRect(0,0,c.width,c
 function sessionStats(s){ let pass=0,fail=0,na=0; (s.audits||[]).forEach(a=>{ pass+=a.pass||0; fail+=a.fail||0; na+=a.na||0; }); return {pass,fail,na,pct:pctOf(pass,fail),audits:(s.audits||[]).length,failures:fail}; }
 function openSignModal(){
   const s=openSession(); if(!s){ toast('No audit is running',true); return; }
+  if(s.status==='signed'){ openSendSheet(s.id); return; }
   linkAudits();
   const n=s.audits.length, st=sessionStats(s), client=s.mode==='client';
   $('sg-h').textContent=client?'Finish client audit':'Finish internal audit';
@@ -1696,13 +1749,10 @@ async function finishSession(){
   const sigId=await putBlob($('sig-modal').toDataURL('image/png'));
   const clientSigId=cInk?await putBlob($('sig-client').toDataURL('image/png')):'';
   const {audits,...rest}=s;
-  put('sessions',{...rest,auditor:name,sigId,clientName:cName,clientSigId,status:'closed',end:new Date().toISOString()});
+  put('sessions',{...rest,auditor:name,sigId,clientName:cName,clientSigId,status:'signed',end:new Date().toISOString()});
   linkAudits(); closeModal('modal-sign'); updateRoundBar(); navigate('pg-reports');
   toast(s.mode==='client'?'Client audit signed and saved':'Internal audit signed and saved');
-  const sid=s.id, set=settings(), mode=emailMode();
-  if(mode==='gmail'&&set.mailUrl) setTimeout(()=>sendRoundEmail(sid,true),800);
-  if(mode==='outlook'&&mailList(set.managerEmails).length) setTimeout(()=>{ if(confirm('Email this report from Outlook now? A PDF will be made for you.')) emailMenu(sid,true); },350);
-  else setTimeout(()=>{ if(confirm('Open the report now to print or share?')) printSession(sid); },350);
+  setTimeout(()=>openSendSheet(s.id),300);
 }
 function cancelRound(){
   const s=openSession(); if(!s) return; linkAudits();
@@ -1815,8 +1865,8 @@ function renderSessionList(){
     return `<div class="sess-item"><div class="sess"><div class="ring" style="--sc:${st.pct};--rc:${pctColor(st.pct)}"><strong>${st.pct}%</strong></div>
       <div class="main"><div class="t">${fmtDate(s.start)}, ${fmtTime(s.start)}${s.end?' to '+fmtTime(s.end):''}</div>
       <div class="s">${esc(kinds||'No audits yet')}. ${st.audits} ${st.audits===1?'audit':'audits'}, ${st.failures} ${st.failures===1?'failure':'failures'}.${who}</div>
-      <div class="chips">${modeChip(s)}${isOpen?'<span class="chip chip-open">Not signed yet</span>':`<span class="chip chip-signed">Signed by ${esc(s.auditor)}</span>`}${sessionMode(s)==='client'&&s.clientName?`<span class="chip chip-client">Client: ${esc(s.clientName)}</span>`:''}</div></div></div>
-      <div class="sess-acts">${isOpen?(mine?`<button class="btn btn-act btn-sm" onclick="openSignModal()">Finish and sign</button>`:''):`<button class="btn btn-sm btn-brand" onclick="printSession('${s.id}')">Report</button><button class="btn btn-sm" onclick="emailMenu('${s.id}')">Email</button><button class="btn btn-sm" onclick="shareSession('${s.id}')">Share</button>`}</div></div>`;
+      <div class="chips">${modeChip(s)}${isOpen?'<span class="chip chip-open">Not signed yet</span>':`<span class="chip chip-signed">Signed by ${esc(s.auditor)}</span>`}${s.status==='signed'?'<span class="chip chip-open">Report not sent</span>':s.reportSentAt?`<span class="chip chip-internal">Sent ${fmtDate(s.reportSentAt)}</span>`:''}${s._fix?'<span class="chip chip-off">Times corrected</span>':''}${sessionMode(s)==='client'&&s.clientName?`<span class="chip chip-client">Client: ${esc(s.clientName)}</span>`:''}</div></div></div>
+      <div class="sess-acts">${isOpen?(mine?`<button class="btn btn-act btn-sm" onclick="openSignModal()">Finish and sign</button>`:''):`<button class="btn btn-sm btn-brand" onclick="printSession('${s.id}')">Report</button><button class="btn btn-sm" onclick="emailMenu('${s.id}')">Email</button><button class="btn btn-sm" onclick="shareSession('${s.id}')">Share</button>${s.status==='signed'&&(mine||isAdmin())?`<button class="btn btn-act btn-sm" onclick="openSendSheet('${s.id}')">Send report</button>`:''}${isAdmin()?`<button class="btn btn-sm btn-quiet" onclick="openFixModal('${s.id}')">Correct</button>`:''}`}</div></div>`;
   }).join('')+'</div>';
 }
 let REP_VIEW='';
@@ -1899,7 +1949,7 @@ function renderSessions(){
   renderSessionList();
 }
 function delSession(id){
-  if(!isAdmin()) return;
+  if(!isAdmin()) return; return openFixModal(id);
   const s=ST.sessions.find(x=>x.id===id); if(!s) return;
   if(!confirm('Delete this audit round and all its audits? This cannot be undone.')) return;
   (s.audits||[]).forEach(a=>drop('audits',a.id)); drop('sessions',id); linkAudits(); renderSessions(); toast('Audit round deleted');
@@ -2096,6 +2146,9 @@ function renderAdmin(){
     <div class="field"><label class="label" for="rec-word">New recovery word (at least 8 letters, only you know it)</label><input class="input" id="rec-word" type="password" autocomplete="off"></div>
     <button class="btn btn-brand" onclick="saveRecovery()">Save recovery word</button></div>
 
+  <h2 class="sec">Health check</h2>
+  <div class="panel" id="health-box"><p class="muted">Checking…</p></div>
+
   <h2 class="sec">Activity log</h2>
   <div class="panel">${[...ST.logs].sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,40).map(l=>`<div class="kv" style="display:block"><b>${esc(l.action)}</b> ${esc(l.detail||'')}<div class="muted" style="font-size:12px">${esc(l.byName||'')}, ${fmtDT(l.at)}</div></div>`).join('')||'<p class="muted">Nothing yet.</p>'}</div>
 
@@ -2107,6 +2160,7 @@ function renderAdmin(){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" onclick="exportBackup()">Download backup</button><button class="btn" onclick="importBackup()">Restore from backup</button><button class="btn btn-danger" onclick="clearDevice()">Clear this phone's copy</button></div></div>`;
   ['Heathrow','Mitie'].forEach(n=>{ const id=set['logo'+n]; if(id) getBlob(id).then(d=>{ const im=$('logo-prev-'+n); if(im&&d){ im.src=d; im.hidden=false; } }); });
   window.__rules=rules;
+  healthHTML().then(h=>{ const b=$('health-box'); if(b) b.innerHTML=h; });
 }
 function rulesText(){
   const blk=`{
@@ -2584,9 +2638,9 @@ Supervisor: ${s.auditor||s.ownerName||''}${client&&s.clientName?`\nClient rep: $
 Areas audited: ${st.audits}. Score: ${st.pct}% (target ${slaFor()}%). Failures: ${st.failures}.
 ${fails.length?'Failed checks:\n'+fails.join('\n'):'No failed checks.'}`;
 }
-async function sendRoundEmail(id,quiet){
+async function sendRoundEmail(id,quiet,toList){
   const s=ST.sessions.find(x=>x.id===id), set=settings(); if(!s) return false;
-  const to=mailList(set.managerEmails); if(!to.length){ if(!quiet) toast('Add manager emails in Admin first',true); return false; }
+  const to=toList&&toList.length?toList:mailList(set.managerEmails); if(!to.length){ if(!quiet) toast('Add manager emails in Admin first',true); return false; }
   if(!set.mailUrl||!/^https:\/\/script\.google\.com\//.test(set.mailUrl)){ if(!quiet) toast('Automatic email is not set up. Use Outlook instead.',true); return false; }
   if(!navigator.onLine){ if(!quiet) toast('No internet. Try again later.',true); return false; }
   try{
@@ -2616,6 +2670,103 @@ function emailMenu(id,startShare){
     <button class="btn btn-lg btn-full" style="margin-top:8px" onclick="downloadPdf('${id}')">Download PDF</button>
     <div id="em-share" style="margin-top:12px"></div>`;
   openModal('modal-email'); if(startShare) prepareShare(id);
+}
+// ── After signing: the report must be sent before the round is finished ──
+const okEmail=e=>/^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(e);
+function openSendSheet(id){
+  const s=ST.sessions.find(x=>x.id===id); if(!s) return; linkAudits();
+  const set=settings(), st=sessionStats(s), auto=!!set.mailUrl;
+  $('sd-summary').textContent=`${sessionMode(s)==='client'?'Client':'Internal'} audit, ${fmtDate(s.start)}. ${st.audits} ${st.audits===1?'area':'areas'}, score ${st.pct}%.`;
+  if(!$('sd-to').value||$('sd-to').dataset.sid!==id){ $('sd-to').value=mailList(set.managerEmails).join(', '); $('sd-to').dataset.sid=id; }
+  $('sd-actions').innerHTML=`${auto?`<button class="btn btn-act btn-lg btn-full" style="margin-top:10px" onclick="sendNow('${id}')">Send report now (PDF attached)</button>`:''}
+    <button class="btn ${auto?'':'btn-act'} btn-lg btn-full" style="margin-top:8px" onclick="shareNow('${id}')">${auto?'Or share the PDF (Outlook, WhatsApp…)':'Share the PDF (Outlook, WhatsApp…)'}</button>
+    ${isAdmin()?`<button class="btn btn-quiet btn-full" style="margin-top:8px" onclick="markSent('${id}','closed by admin','')">Close without sending (admin)</button>`:''}`;
+  $('sd-status').innerHTML=''; openModal('modal-send');
+}
+function sendList(){ const l=$('sd-to').value.split(/[,;\s]+/).map(x=>x.trim()).filter(Boolean); const bad=l.filter(x=>!okEmail(x)); return {l,bad}; }
+async function sendNow(id){
+  const {l,bad}=sendList(); if(!l.length){ toast('Add at least one email address',true); return; } if(bad.length){ toast('Check this email: '+bad[0],true); return; }
+  $('sd-status').innerHTML='<p class="muted">Sending… making the PDF can take a few seconds.</p>';
+  const ok=await sendRoundEmail(id,false,l);
+  if(ok) markSent(id,'email',l.join(', ')); else $('sd-status').innerHTML='<p style="color:var(--fail);font-weight:600">Not sent. Try again, or share the PDF instead.</p>';
+}
+async function shareNow(id){
+  const s=ST.sessions.find(x=>x.id===id); if(!s) return;
+  const {l,bad}=sendList(); if(bad.length){ toast('Check this email: '+bad[0],true); return; }
+  $('sd-status').innerHTML='<p class="muted">Preparing the PDF…</p>';
+  try{ await sessionPdf(s); }catch(e){ $('sd-status').innerHTML=`<p style="color:var(--fail);font-weight:600">${esc(e.message||'The PDF could not be made.')}</p>`; return; }
+  $('sd-status').innerHTML=`<p style="font-size:14px;margin-bottom:8px"><b>PDF ready.</b> Tap Share, choose Outlook (or another app), paste the emails into To and send. ${l.length?'The emails are copied for you.':''}</p>
+    <button class="btn btn-act btn-lg btn-full" onclick="shareGo('${id}')">Share now</button>
+    <button class="btn btn-lg btn-full" style="margin-top:8px" onclick="markSent('${id}','shared','${esc(l.join(', '))}')">I have sent it</button>`;
+}
+async function shareGo(id){
+  const s=ST.sessions.find(x=>x.id===id), p=PDF_CACHE[id]; if(!s||!p) return;
+  const {l}=sendList(); try{ if(l.length) await navigator.clipboard.writeText(l.join('; ')); }catch(e){}
+  const file=new File([p.blob],p.name,{type:'application/pdf'}), st=sessionStats(s), subj=`${sessionMode(s)==='client'?'Client':'Internal'} Audit Report: ${TERM.name}, ${fmtDate(s.start)}, ${st.pct}%`;
+  if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file],title:subj,text:sessionText(s)}); }catch(e){ if(e&&e.name!=='AbortError') toast('Could not open sharing. The PDF will download instead.',true); else return; } }
+  else { saveBlob(p.blob,p.name); toast('PDF downloaded. Attach it to your email.'); }
+}
+function markSent(id,via,to){
+  const s=ST.sessions.find(x=>x.id===id); if(!s||s.status==='closed') { closeModal('modal-send'); return; }
+  if(via==='closed by admin'&&!confirm('Close this round without sending the report?')) return;
+  const {audits,...rest}=s; put('sessions',{...rest,status:'closed',reportSentAt:new Date().toISOString(),reportSentTo:to||'',reportVia:via});
+  logAct(via==='closed by admin'?'Round closed without report':'Report sent',`${fmtDate(s.start)} ${s.ownerName||''}${to?' to '+to:''} (${via})`);
+  linkAudits(); closeModal('modal-send'); updateRoundBar(); toast(via==='closed by admin'?'Round closed':'Report sent. Audit finished.'); refreshView();
+}
+// ── Admin corrections (delete, change times) ──
+const toLocalInput=iso=>{ if(!validDate(iso)) return ''; const d=new Date(iso); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); };
+function openFixModal(id){
+  if(!isAdmin()) return; const s=ST.sessions.find(x=>x.id===id); if(!s) return; linkAudits();
+  $('fx-id').value=id; $('fx-start').value=toLocalInput(s.start); $('fx-end').value=toLocalInput(s.end); $('fx-reason').value='';
+  $('fx-audits').innerHTML=(s.audits||[]).length?`<div class="list">${s.audits.map(a=>`<div class="row"><div class="main"><div class="t">${esc(a.name)}</div><div class="s"><span>${fmtDT(a.endedAt)}</span><span>${pctOf(a.pass,a.fail)}%</span></div></div><div class="acts"><button class="btn btn-sm btn-danger" onclick="delAuditFix('${a.id}')">Delete</button></div></div>`).join('')}</div>`:'<p class="muted">No audits.</p>';
+  openModal('modal-fix');
+}
+function fixReason(){ const r=$('fx-reason').value.replace(/\s+/g,' ').trim(); if(r.length<3){ toast('Write a short reason first',true); $('fx-reason').focus(); return ''; } return r; }
+function putFix(fix,action,detail,reason){ const m=me(); put('logs',{id:newId('lg'),at:new Date().toISOString(),by:m?m.id:'',byName:m?m.name:'',action,detail:(detail+'. Reason: '+reason).slice(0,200),fix}); linkAudits(); persistSoon(); }
+function saveFixTime(){
+  const id=$('fx-id').value, s=ST.sessions.find(x=>x.id===id); if(!s) return; const reason=fixReason(); if(!reason) return;
+  const st=$('fx-start').value, en=$('fx-end').value; if(!st){ toast('Choose the start time',true); return; }
+  const start=new Date(st).toISOString(), end=en?new Date(en).toISOString():'';
+  if(end&&end<start){ toast('The finish time is before the start time',true); return; }
+  putFix({type:'time',id,start,end},'Round times corrected',`${fmtDT(s.start)} changed to ${fmtDT(start)}${end?' – '+fmtTime(end):''}`,reason);
+  closeModal('modal-fix'); refreshView(); toast('Times corrected');
+}
+function delAuditFix(aid){
+  const a=ST.audits.find(x=>x.id===aid); if(!a) return; const reason=fixReason(); if(!reason) return;
+  if(!confirm(`Delete the audit of "${a.name}"? It will be removed from all reports.`)) return;
+  putFix({type:'del-audit',id:aid},'Audit deleted',`${a.name}, ${fmtDT(a.endedAt)}`,reason); openFixModal($('fx-id').value); refreshView(); toast('Audit deleted');
+}
+function delRoundFix(){
+  const id=$('fx-id').value, s=ST.sessions.find(x=>x.id===id); if(!s) return; const reason=fixReason(); if(!reason) return;
+  if(!confirm('Delete this whole round and its audits? They will be removed from all reports.')) return;
+  putFix({type:'del-session',id},'Round deleted',`${fmtDT(s.start)} by ${s.ownerName||s.auditor||''}, ${(s.audits||[]).length} audits`,reason);
+  closeModal('modal-fix'); renderSessions(); updateRoundBar(); toast('Round deleted');
+}
+// ── Health check (admin) ──
+const ERR_KEY='t3a_errors';
+function noteError(msg){ try{ const l=JSON.parse(lsGet(ERR_KEY)||'[]'); l.unshift({at:new Date().toISOString(),m:String(msg).slice(0,240),v:APP_VERSION}); lsSet(ERR_KEY,JSON.stringify(l.slice(0,30))); }catch(e){} }
+window.addEventListener('error',e=>noteError((e.message||'Error')+(e.filename?` (${String(e.filename).split('/').pop()}:${e.lineno})`:'')));
+window.addEventListener('unhandledrejection',e=>noteError('Promise: '+((e.reason&&(e.reason.message||e.reason))||'unknown')));
+async function healthHTML(){
+  const errs=(()=>{ try{ return JSON.parse(lsGet(ERR_KEY)||'[]'); }catch(e){ return []; } })(), now=Date.now();
+  const stuck=ST.sessions.filter(s=>s.status==='open'&&now-new Date(s.start).getTime()>12*3600000);
+  const unsent=ST.sessions.filter(s=>s.status==='signed');
+  const noChecks=ST.areas.filter(a=>!(a.items||[]).length);
+  const seen={}, dups=[]; ST.areas.forEach(a=>{ const k=a.zone+'|'+a.tier+'|'+String(a.name).toLowerCase(); if(seen[k]) dups.push(a); else seen[k]=1; });
+  let est=null; try{ est=navigator.storage&&navigator.storage.estimate?await navigator.storage.estimate():null; }catch(e){}
+  const photos=ST.audits.reduce((n,a)=>n+(a.items||[]).filter(it=>it.photoId).length,0);
+  const mb=x=>(x/1048576).toFixed(1)+' MB';
+  const row=(t,v,bad)=>`<div class="kv"><span>${t}</span><span${bad?' style="color:var(--fail);font-weight:600"':''}>${v}</span></div>`;
+  return `${row('Waiting to upload',pendingCount(),pendingCount()>20)}${row('Last problem',SYNC_ERR?esc(SYNC_ERR):'None',!!SYNC_ERR)}
+    ${row('Rounds open over 12 hours',stuck.length?stuck.map(s=>esc(s.ownerName||'')+' '+fmtDate(s.start)).join(', '):'None',stuck.length)}
+    ${row('Signed, report not sent',unsent.length?unsent.map(s=>esc(s.ownerName||'')+' '+fmtDate(s.start)).join(', '):'None',unsent.length)}
+    ${row('Areas with no checks',noChecks.length?noChecks.map(a=>esc(a.name)).join(', '):'None',noChecks.length)}
+    ${row('Duplicate area names',dups.length?dups.map(a=>esc(a.name)+' (Zone '+a.zone+')').join(', '):'None',dups.length)}
+    ${row('Photos stored',photos)}
+    ${est?row('Space used on this phone',`${mb(est.usage||0)} of ${mb(est.quota||0)}`,(est.usage||0)>(est.quota||1)*0.8):''}
+    ${row('App version',APP_VERSION)}
+    <h3 style="font-size:16px;margin:12px 0 4px">Errors on this phone (${errs.length})</h3>
+    ${errs.length?errs.slice(0,10).map(e=>`<div class="kv" style="display:block;font-size:13px"><b>${fmtDT(e.at)}</b> ${esc(e.m)} <span class="muted">${esc(e.v||'')}</span></div>`).join('')+'<button class="btn btn-sm" style="margin-top:6px" onclick="lsSet(ERR_KEY,null);renderAdmin()">Clear errors</button>':'<p class="muted" style="font-size:13px">No errors recorded.</p>'}`;
 }
 // ── PDF built inside the app (html2pdf, loaded only when needed) ──
 const H2P='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
