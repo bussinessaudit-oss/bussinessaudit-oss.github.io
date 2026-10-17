@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="theme-color" content="#24123F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="T3 Audit">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<meta name="description" content="Cleaning audit app.">
+<title>T3 Audit</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23FFD100'/%3E%3Ctext x='32' y='44' font-family='Arial' font-weight='700' font-size='30' text-anchor='middle' fill='%231A1A1A'%3ET3%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+:root{--ink:#24123F;--brand:#4B2482;--brand-soft:#EFE9F8;--brand-line:#D9CDEB;--act:#D6246E;--act-dark:#AF1757;--sign:#FFD100;--sign-ink:#1A1A1A;--paper:#F4F2F8;--card:#FFFFFF;--line:#E4DEEE;--text:#1D1530;--muted:#6B6380;--pass:#0F7B55;--pass-soft:#E2F4EB;--fail:#C62828;--fail-soft:#FDECEC;--na:#6B7280;--na-soft:#EEF0F3;--warn:#B26A00;--client:#0A7385;--client-soft:#DFF2F5;--internal:#4B2482;--gold:#9A6A00;--gold-soft:#FFF3D1;--silver:#56616F;--silver-soft:#ECEFF3;--bronze:#8E4A1C;--bronze-soft:#F8E7DA;--r-panel:14px;--r-btn:10px;--r-plate:6px;--hdr:58px;--nav:64px;--rb:0px;--safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);--shadow:0 2px 8px rgba(36,18,63,.06),0 0 1px rgba(36,18,63,.12)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{height:100%;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{font-family:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;line-height:1.45;color:var(--text);background:var(--paper);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--sign);outline-offset:2px}
+.cond,h1,h2,h3{font-family:'Barlow Condensed','Barlow',system-ui,sans-serif;letter-spacing:.01em}
+img{max-width:100%;image-rendering:-webkit-optimize-contrast}
+#hdr{position:fixed;top:0;left:0;right:0;z-index:100;height:calc(var(--hdr) + var(--safe-t));padding:var(--safe-t) 14px 0;background:var(--ink);color:#fff;display:flex;align-items:center;gap:11px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.plate{display:inline-flex;align-items:center;justify-content:center;background:var(--sign);color:var(--sign-ink);border-radius:var(--r-plate);font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;line-height:1;flex-shrink:0;box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)}
+.hdr-plate{width:36px;height:36px;font-size:21px}
+.hdr-id{min-width:0}
+.hdr-title{font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;font-size:21px;line-height:1}
+.hdr-sub{font-size:12px;color:rgba(255,255,255,.72);white-space:nowrap}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.icon-hdr{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.88);white-space:nowrap}
+.sync i{width:8px;height:8px;border-radius:50%;background:#9AA0A6;flex-shrink:0}
+.sync.on i{background:#3DDC97;box-shadow:0 0 6px #3DDC97}.sync.off i{background:#FF7A7A}.sync.busy i{background:var(--sign)}
+.me-chip{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);color:#fff;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0}
+#roundbar{position:fixed;left:0;right:0;top:calc(var(--hdr) + var(--safe-t));z-index:99;height:48px;display:none;align-items:center;gap:10px;padding:0 14px;color:#fff;font-size:14px}
+body.has-round #roundbar{display:flex}
+body.has-round{--rb:48px}
+#roundbar.client{background:var(--client)}
+#roundbar.internal{background:var(--brand)}
+#roundbar .rb-text{flex:1;min-width:0;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#roundbar .rb-text small{display:block;font-size:12px;opacity:.85}
+#roundbar .btn{background:#fff;color:var(--ink);border-color:#fff;min-height:34px}
+#main{position:fixed;left:0;right:0;top:calc(var(--hdr) + var(--safe-t) + var(--rb));bottom:calc(var(--nav) + var(--safe-b));overflow-y:auto;-webkit-overflow-scrolling:touch}
+.page{display:none;padding:16px 16px 36px;max-width:880px;margin:0 auto}
+.page.active{display:block}
+#nav{position:fixed;left:0;right:0;bottom:0;z-index:100;height:calc(var(--nav) + var(--safe-b));padding-bottom:var(--safe-b);background:#fff;border-top:1px solid var(--line);display:flex;box-shadow:0 -2px 10px rgba(36,18,63,.04)}
+#nav.hide,#hdr.hide{display:none}
+.nav-btn{flex:1;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;position:relative}
+.nav-btn svg{width:24px;height:24px}
+.nav-btn.active{color:var(--brand)}
+.nav-btn.active::before{content:'';position:absolute;top:0;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:var(--brand)}
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+h1.pg{font-weight:700;font-size:28px;line-height:1.1}
+.pg-sub{color:var(--muted);font-size:14px;margin-top:2px}
+.back{background:none;border:none;color:var(--brand);font-weight:600;font-size:15px;padding:2px 0 10px;cursor:pointer;display:inline-flex;align-items:center;gap:2px}
+h2.sec{font-weight:700;font-size:20px;display:flex;align-items:center;gap:8px;margin:22px 0 8px}
+h2.sec .n{font-family:'Barlow',sans-serif;font-weight:500;font-size:13px;color:var(--muted)}
+h2.sec .btn{margin-left:auto}
+.muted{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:8px 14px;border-radius:var(--r-btn);border:1.5px solid var(--brand-line);background:#fff;color:var(--brand);font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap;text-decoration:none;line-height:1.1;transition:transform .08s,background .12s}
+.btn:active{transform:scale(.97)}
+.btn-act{background:var(--act);border-color:var(--act);color:#fff}
+.btn-act:active{background:var(--act-dark);border-color:var(--act-dark)}
+.btn-brand{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn-pass{background:var(--pass);border-color:var(--pass);color:#fff}
+.btn-client{border-color:var(--client);color:var(--client)}
+.btn-danger{color:var(--fail);border-color:#F0C6C6}
+.btn-quiet{border-color:transparent;background:transparent}
+.btn-sm{min-height:34px;padding:5px 11px;font-size:13px}
+.btn-lg{min-height:52px;font-size:16px;padding:12px 18px}
+.btn-full{width:100%}
+button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-panel);padding:14px;box-shadow:var(--shadow)}
+.panel+.panel{margin-top:12px}
+.list{background:var(--card);border:1px solid var(--line);border-radius:var(--r-panel);overflow:hidden;box-shadow:var(--shadow)}
+.list+.list{margin-top:10px}
+.row{display:flex;align-items:center;gap:12px;padding:10px 12px;min-height:60px}
+.row+.row,.bundle+.row,.row+.bundle,.bundle+.bundle,.bundle-body+.bundle,.bundle-body+.row{border-top:1px solid var(--line)}
+.ico{width:38px;height:38px;border-radius:10px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.row .main{flex:1;min-width:0}
+.row .t{font-weight:600;font-size:15px;line-height:1.25;overflow-wrap:anywhere}
+.row .s{font-size:13px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:2px 12px;align-items:center}
+.row .acts{display:flex;gap:6px;flex-shrink:0}
+.score{font-weight:700}
+.bundle{display:flex;align-items:center;gap:10px;padding:12px;cursor:pointer;user-select:none;min-height:54px}
+.bundle .chev{color:var(--muted);transition:transform .15s}
+.bundle.open .chev{transform:rotate(90deg)}
+.bundle .t{font-weight:700;flex:1;min-width:0;overflow-wrap:anywhere}
+.bundle .t small{display:block;font-weight:500;font-size:13px;color:var(--muted)}
+.bundle-body{background:#FAF8FD;border-top:1px solid var(--line)}
+.bundle-body .row{padding-left:20px}
+.empty-note{color:var(--muted);font-size:14px;padding:12px 2px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:700;line-height:1.7;white-space:nowrap}
+.chip-client{background:var(--client-soft);color:var(--client)}
+.chip-internal{background:var(--brand-soft);color:var(--brand)}
+.chip-open{background:#FFF3D1;color:#7A5500}
+.chip-signed{background:var(--pass-soft);color:var(--pass)}
+.chip-off{background:var(--na-soft);color:var(--na)}
+.chip-gold{background:var(--gold-soft);color:var(--gold)}.chip-silver{background:var(--silver-soft);color:var(--silver)}.chip-bronze{background:var(--bronze-soft);color:var(--bronze)}
+.hello{font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;font-size:27px;line-height:1.1}
+.qsearch-wrap{position:relative;margin-top:12px}
+.qsearch-bar{display:flex;gap:8px;align-items:center}
+.qsearch-res{margin-top:8px;max-height:320px;overflow-y:auto}
+.round-card{margin-top:14px;padding:16px;border-radius:var(--r-panel);background:#fff;border:1px solid var(--line);box-shadow:var(--shadow)}
+.round-card h3{font-size:20px;font-weight:700}
+.round-card p{color:var(--muted);font-size:14px;margin-top:2px}
+.round-card .acts{display:grid;gap:10px;margin-top:14px}
+.round-card.client{border-color:var(--client);box-shadow:inset 5px 0 0 var(--client),var(--shadow)}
+.round-card.internal{border-color:var(--brand-line);box-shadow:inset 5px 0 0 var(--brand),var(--shadow)}
+@media(min-width:620px){.round-card .acts{grid-template-columns:1fr 1fr}}
+.today{display:flex;gap:26px;margin:18px 2px 0;flex-wrap:wrap}
+.today div{font-size:13px;color:var(--muted)}
+.today b{display:block;font-family:'Barlow Condensed','Barlow',sans-serif;font-size:28px;color:var(--text);line-height:1}
+.zones{display:grid;gap:10px}
+.zone{display:flex;align-items:center;gap:14px;padding:12px 14px 12px 12px;background:#fff;border:1px solid var(--line);border-radius:var(--r-panel);cursor:pointer;text-align:left;width:100%;box-shadow:var(--shadow)}
+.zone .plate{width:60px;height:60px;font-size:38px}
+.zone .zmain{flex:1;min-width:0}
+.zone .zt{font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;font-size:22px;line-height:1.05}
+.zone .zs{color:var(--muted);font-size:13px;margin-top:2px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;background:var(--brand);border-radius:3px;transition:width .3s}
+@media(min-width:720px){.zones{grid-template-columns:1fr 1fr}}
+.loc-head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.loc-head .plate{width:52px;height:52px;font-size:32px}
+.loc-head h1{font-weight:700;font-size:27px;line-height:1.05}
+.tier{display:flex;align-items:center;gap:14px;padding:14px;background:#fff;border:1px solid var(--line);border-left:6px solid var(--tc);border-radius:var(--r-panel);cursor:pointer;width:100%;text-align:left;margin-top:10px;box-shadow:var(--shadow)}
+.medal{width:44px;height:44px;border-radius:50%;background:var(--ts);color:var(--tc);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;font-size:21px;flex-shrink:0}
+.tier .tt{font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;font-size:21px;line-height:1.1}
+.tier .tm{font-size:13px;color:var(--muted)}
+.tier .tmain{flex:1;min-width:0}
+.audit-head .t1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.audit-head h1{font-weight:700;font-size:25px;line-height:1.1}
+.audit-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.check{padding:14px 0;border-bottom:1px solid var(--line)}
+.check:last-child{border-bottom:none}
+.check .q{font-size:15px;font-weight:600;margin-bottom:9px}
+.check.fail .q{color:var(--fail)}
+.seg{display:grid;grid-template-columns:1fr 1fr 1fr;border:1.5px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{border:none;background:#fff;min-height:46px;font-weight:700;font-size:15px;color:var(--muted);cursor:pointer}
+.seg button+button{border-left:1.5px solid var(--line)}
+.seg .p.on{background:var(--pass);color:#fff}
+.seg .f.on{background:var(--fail);color:#fff}
+.seg .n.on{background:var(--na);color:#fff}
+.rsn-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 4px}
+.rsn-tabs button{font:inherit;font-weight:700;font-size:14px;padding:9px 6px;border-radius:10px;border:1.5px solid #F0C6C6;background:#fff;color:var(--text);cursor:pointer}
+.rsn-tabs button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.rsn-tabs button.fab.on{background:var(--warn);border-color:var(--warn)}
+.rsn-g{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 5px}
+.rsn-g:first-child{margin-top:0}
+.rsn{display:flex;flex-wrap:wrap;gap:6px}
+.rsn button{border:1.5px solid #F0C6C6;background:#fff;color:var(--text);border-radius:999px;padding:7px 12px;font:inherit;font-size:14px;cursor:pointer;min-height:38px}
+.rsn button.on{background:var(--fail);border-color:var(--fail);color:#fff;font-weight:700}
+.rsn.fault button{border-color:#E5D3B0}
+.rsn.fault button.on{background:var(--warn);border-color:var(--warn)}
+.fault-tag{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:var(--warn)}
+.fail-box{margin-top:10px;padding:12px;background:var(--fail-soft);border-radius:10px}
+.photo-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.thumb{width:100%;max-height:240px;object-fit:contain;background:#111;border-radius:8px;margin-top:8px;border:1px solid var(--line)}
+.savebar{position:sticky;bottom:0;padding:14px 0 2px;background:linear-gradient(rgba(244,242,248,0),var(--paper) 35%)}
+.lbl-row{display:flex;justify-content:space-between;align-items:center;margin-top:12px;margin-bottom:5px}
+.lbl-row .label{margin-bottom:0}
+.mic-btn{border:1px solid var(--brand-line);background:#fff;color:var(--brand);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.mic-btn.rec{background:var(--fail);border-color:var(--fail);color:#fff}
+.field{margin-bottom:12px}
+.label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.input{width:100%;background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;font-size:15px;outline:none;min-height:44px}
+.input:focus{border-color:var(--brand)}
+textarea.input{resize:vertical;min-height:76px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ticks{display:flex;flex-wrap:wrap;gap:8px}
+.tick{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border:1.5px solid var(--line);border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;background:#fff}
+.tick input{accent-color:var(--brand);width:16px;height:16px}
+.tick small{color:var(--muted);font-weight:500}
+.note{font-size:13px;color:var(--brand);background:var(--brand-soft);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.switch-row{display:flex;align-items:center;gap:10px;font-weight:600;padding:8px 0;cursor:pointer}
+.switch-row input{width:20px;height:20px;accent-color:var(--brand)}
+.choice{display:grid;gap:10px;margin-bottom:14px}
+.opt{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1.5px solid var(--line);border-radius:12px;cursor:pointer}
+.opt input{margin-top:4px;width:18px;height:18px;accent-color:var(--brand)}
+.opt.client input{accent-color:var(--client)}
+.opt b{display:block;font-size:16px}
+.opt small{color:var(--muted);font-size:13px}
+.opt:has(input:checked){border-color:var(--brand);background:var(--brand-soft)}
+.opt.client:has(input:checked){border-color:var(--client);background:var(--client-soft)}
+.modal{position:fixed;inset:0;z-index:300;background:rgba(24,12,42,.56);backdrop-filter:blur(2px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
+.modal.open{opacity:1;pointer-events:auto}
+.sheet{width:100%;max-width:560px;background:#fff;border-radius:18px 18px 0 0;padding:16px 16px calc(18px + var(--safe-b));max-height:92vh;overflow-y:auto;transform:translateY(100%);transition:transform .24s cubic-bezier(.3,.7,0,1)}
+.modal.open .sheet{transform:none}
+@media(min-width:720px){.modal{align-items:center}.sheet{border-radius:18px}}
+.sheet-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sheet-h h3{font-weight:700;font-size:23px;flex:1;line-height:1.1}
+.x{border:none;background:none;font-size:28px;line-height:1;color:var(--muted);cursor:pointer;width:42px;height:42px;border-radius:10px}
+.sig{width:100%;height:150px;border:1.5px dashed #CABFDD;border-radius:10px;background:#fff;touch-action:none;display:block}
+.sig-tools{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px;color:var(--muted)}
+.annot-cv{width:100%;max-height:58vh;object-fit:contain;background:#111;border-radius:10px;touch-action:none;display:block;margin:0 auto}
+.tabs{display:flex;gap:4px;background:#E7E2F0;padding:4px;border-radius:12px;margin:14px 0 12px;overflow-x:auto}
+.tabs button{flex:1;border:none;background:none;min-height:40px;padding:0 10px;border-radius:9px;font-weight:700;color:var(--muted);cursor:pointer;font-size:13.5px;white-space:nowrap}
+.tabs button.on{background:#fff;color:var(--brand);box-shadow:0 1px 2px rgba(36,18,63,.14)}
+.tabs button.on.client{color:var(--client)}
+.filters-toggle{display:flex;align-items:center;gap:8px;width:100%;border:none;background:none;font-weight:700;color:var(--brand);cursor:pointer;padding:2px 0;min-height:36px}
+.rep-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 2px;align-items:end}
+.rep-grid .input{padding:9px 10px;font-size:14px;min-height:40px}
+.rep-date span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:0 0 3px 2px}
+@media(min-width:720px){.rep-grid{grid-template-columns:repeat(4,1fr)}}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 10px 9px;box-shadow:var(--shadow)}
+.kpi b{display:block;font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;font-size:30px;line-height:1}
+.kpi span{display:block;font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.25}
+.meter{margin-bottom:10px}
+.meter .mh{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.meter .mh span{min-width:0;overflow-wrap:anywhere}
+.trend{display:flex;align-items:flex-end;gap:4px;height:130px;padding-top:6px}
+.trend div{flex:1;text-align:center;font-size:10px;color:var(--muted)}
+.trend .tb{margin:3px auto 0;width:72%;border-radius:4px}
+.sess{display:flex;gap:12px;align-items:center;padding:12px}
+.sess-item+.sess-item{border-top:1px solid var(--line)}
+.ring{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--rc) calc(var(--sc)*1%),#ECE8F3 0);position:relative;flex-shrink:0}
+.ring::after{content:'';position:absolute;inset:6px;background:#fff;border-radius:50%}
+.ring strong{position:relative;z-index:1;font-family:'Barlow Condensed','Barlow',sans-serif;font-size:17px}
+.sess .main{flex:1;min-width:0}
+.sess .t{font-weight:700}
+.sess .s{font-size:13px;color:var(--muted);margin-top:2px}
+.sess .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.sess-acts{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 12px 82px}
+.issue{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.issue:last-child{border-bottom:none}
+.age-green{color:var(--pass)!important}.age-amber{color:var(--warn)!important}.age-red{color:var(--fail)!important}
+.alerts{margin-top:14px;padding:12px;border-radius:var(--r-panel);background:#FFF7E8;border:1px solid #F3D9A6}
+.alert-row{font-size:14px;font-weight:600;padding:6px 0 6px 12px;border-left:4px solid var(--warn);margin-bottom:6px}
+.alert-row.red{border-left-color:var(--fail);color:#8F1D1D}
+.tgt{padding:10px 0;border-bottom:1px solid var(--line)}.tgt:last-child{border-bottom:none}
+.tgt .mh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tgt-name{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+.tgt-bar{height:10px;position:relative;overflow:visible}.tgt-bar>i{border-radius:5px}
+.tgt-bar em{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);border-radius:1px}
+.stack{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--line);margin-top:6px}.stack i{display:block;height:100%}
+.adm h2.sec:first-child{margin-top:14px}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.kv:last-child{border-bottom:none}
+.kv span:first-child{color:var(--muted)}
+.logo-prev{height:40px;max-width:140px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+.steps{padding-left:20px;font-size:14px;color:var(--text)}
+.steps li{margin:4px 0}
+code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;color:#F2EEFA;border-radius:10px;padding:10px 12px;font-size:12px;margin-top:8px}
+#login{position:fixed;inset:0;z-index:500;background:var(--ink);color:#fff;display:none;overflow-y:auto}
+#login.open{display:block}
+.login-wrap{max-width:420px;margin:0 auto;padding:calc(44px + var(--safe-t)) 20px 30px}
+.login-plate{width:86px;height:86px;font-size:52px}
+.login-title{font-weight:700;font-size:36px;line-height:1.02;margin-top:20px}
+.login-sub{color:rgba(255,255,255,.72);margin-top:6px}
+.logos{display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.logos img{height:36px;max-width:150px;object-fit:contain;background:#fff;border-radius:6px;padding:4px 8px}
+.login-card{background:#fff;color:var(--text);border-radius:16px;padding:18px;margin-top:22px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.login-card h2{font-weight:700;font-size:22px;margin-bottom:12px}
+.login-msg{color:var(--fail);font-size:14px;min-height:20px;margin-top:8px;font-weight:600}
+.login-foot{color:rgba(255,255,255,.5);font-size:12px;margin-top:16px}
+.term-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.term-btn{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:16px 14px;border:2px solid var(--line);border-radius:var(--r-panel);background:var(--card);cursor:pointer;text-align:left;font:inherit;color:var(--text);min-height:92px}
+.term-btn b{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:38px;line-height:1;color:var(--brand)}
+.term-btn span{font-size:14px;color:var(--muted)}
+.term-btn.last{border-color:var(--brand);background:var(--brand-soft)}
+.term-btn:active{transform:scale(.98)}
+.term-btn:focus-visible{outline:3px solid var(--act);outline-offset:2px}
+.add-row{padding:8px 12px;border-top:1px dashed var(--line)}
+.linkbtn{background:none;border:none;color:var(--brand);font-weight:600;cursor:pointer;padding:8px 0;font-size:14px}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(var(--nav) + var(--safe-b) + 12px);z-index:900;max-width:520px;margin:0 auto;background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;font-weight:600;text-align:center;opacity:0;transform:translateY(8px);transition:opacity .18s,transform .18s;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+#toast.show{opacity:1;transform:none}
+#toast.err{background:var(--fail)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div id="login" class="open">
+  <div class="login-wrap">
+    <span class="plate login-plate" id="login-plate" aria-hidden="true">T3</span>
+    <h1 class="login-title" id="login-title">Terminal 3 audits</h1>
+    <p class="login-sub" id="login-sub">Mitie cleaning services at Heathrow Terminal 3</p>
+    <div class="logos" id="login-logos"></div>
+    <div class="login-card" id="login-card"></div>
+    <p class="login-foot" id="login-foot"></p>
+  </div>
+</div>
+
+<header id="hdr" class="hide">
+  <span class="plate hdr-plate" id="hdr-plate" aria-hidden="true">T3</span>
+  <div class="hdr-id"><div class="hdr-title" id="hdr-title">T3 Audit</div><div class="hdr-sub" id="hdr-sub">Heathrow Terminal 3</div></div>
+  <div class="hdr-right">
+    <button class="icon-hdr" onclick="openQrScanner()" title="Scan QR / Quick Code" aria-label="Scan QR or enter area code"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="4" height="4"/><rect x="13" y="7" width="4" height="4"/><rect x="7" y="13" width="4" height="4"/><path d="M13 13h4v4h-4z"/></svg></button>
+    <span class="sync off" id="sync" role="status"><i></i><span id="sync-txt">Offline</span></span>
+    <button class="me-chip" id="me-chip" onclick="navigate('pg-account')" aria-label="Your account">–</button>
+  </div>
+</header>
+<div id="roundbar" role="status"></div>
+
+<main id="main">
+  <section class="page" id="pg-home">
+    <div class="hello" id="hello"></div>
+    <div class="pg-sub" id="today-date"></div>
+    <div class="qsearch-wrap">
+      <div class="qsearch-bar">
+        <input class="input" id="home-q" type="search" placeholder="🔍 Quick jump: type Gate 10, Boots, 2550, Arrivals…" oninput="renderQuickSearch(this.value)" autocomplete="off">
+        <button class="btn" onclick="openQrScanner()" title="Scan QR sticker">QR</button>
+      </div>
+      <div id="home-q-res" class="qsearch-res" hidden></div>
+    </div>
+    <div id="round-card"></div>
+    <div class="today" id="today-strip"></div>
+    <h2 class="sec">Zones</h2>
+    <div class="zones" id="zone-list"></div>
+  </section>
+
+  <section class="page" id="pg-zone">
+    <button class="back" onclick="navigate('pg-home')"><svg class="ic" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>All zones</button>
+    <div id="zone-head"></div>
+    <div id="tier-list"></div>
+  </section>
+
+  <section class="page" id="pg-tier">
+    <button class="back" onclick="navigate('pg-zone')"><svg class="ic" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Tiers</button>
+    <div id="tier-head"></div>
+    <div id="tier-tools"></div>
+    <div id="tier-body"></div>
+  </section>
+
+  <section class="page" id="pg-audit">
+    <button class="back" onclick="leaveAudit()"><svg class="ic" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back</button>
+    <div class="panel audit-head">
+      <div class="t1" id="audit-chips"></div>
+      <h1 id="audit-title">Audit</h1>
+      <div class="pg-sub" id="audit-sub"></div>
+      <div class="bar"><i id="a-prog" style="width:0"></i></div>
+      <div class="audit-tools">
+        <div class="pg-sub" id="a-prog-txt" style="margin:0"></div>
+        <button type="button" class="btn btn-sm btn-pass" onclick="passRemaining()">✓ Pass remaining</button>
+      </div>
+    </div>
+    <div class="panel" id="audit-items"></div>
+    <div class="panel">
+      <div class="lbl-row" style="margin-top:0">
+        <label class="label" for="a-notes">Notes for this audit</label>
+        <button type="button" class="mic-btn" onclick="dictateTo('a-notes',this)">🎙️ Dictate</button>
+      </div>
+      <textarea class="input" id="a-notes" placeholder="Anything else the report should show" oninput="saveDraft()"></textarea>
+    </div>
+    <div class="savebar"><button class="btn btn-act btn-lg btn-full" id="a-save" onclick="saveAudit()">Save audit</button></div>
+  </section>
+
+  <section class="page" id="pg-reports">
+    <h1 class="pg">Reports</h1>
+    <div class="pg-sub" id="rep-sub"></div>
+    <div class="tabs" id="rep-tabs" role="tablist"></div>
+    <div id="sessions-list"></div>
+  </section>
+
+  <section class="page" id="pg-dash">
+    <h1 class="pg">Dashboard</h1>
+    <div class="pg-sub">Targets, alerts and which areas are being missed.</div>
+    <div id="dash-body"></div>
+  </section>
+
+  <section class="page adm" id="pg-admin">
+    <h1 class="pg">Admin</h1>
+    <div class="pg-sub">Only you can see this tab.</div>
+    <div id="admin-body"></div>
+  </section>
+
+  <section class="page" id="pg-account">
+    <h1 class="pg">Account</h1>
+    <div id="account-body"></div>
+  </section>
+</main>
+
+<nav id="nav" class="hide" aria-label="Main">
+  <button class="nav-btn active" id="nav-home" onclick="navigate('pg-home')"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><span>Zones</span></button>
+  <button class="nav-btn" id="nav-reports" onclick="navigate('pg-reports')"><svg class="ic" viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span>Reports</span></button>
+  <button class="nav-btn" id="nav-dash" onclick="navigate('pg-dash')" hidden><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Dashboard</span></button>
+  <button class="nav-btn" id="nav-admin" onclick="navigate('pg-admin')"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Admin</span></button>
+  <button class="nav-btn" id="nav-account" onclick="navigate('pg-account')"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span>Account</span></button>
+</nav>
+
+<div class="modal" id="modal-area">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="area-modal-title">
+    <div class="sheet-h"><h3 id="area-modal-title">Add area</h3><button class="x" onclick="closeModal('modal-area')" aria-label="Close">×</button></div>
+    <input type="hidden" id="ar-id">
+    <div class="field" id="ar-type-wrap"><label class="label" for="ar-type">Area type</label><select class="input" id="ar-type" onchange="onAreaType()"></select></div>
+    <div id="ar-typed">
+      <div class="field"><label class="label" for="ar-loc">Location name (add several with commas)</label><input class="input" id="ar-loc" placeholder="e.g. Gate 10, Gate 11"></div>
+      <div class="field" id="ar-parts-wrap"><span class="label">Sub-areas (tick the ones it has)</span><div class="ticks" id="ar-parts"></div></div>
+      <div class="note" id="ar-typed-info"></div>
+    </div>
+    <div id="ar-custom">
+      <div class="field"><label class="label" for="ar-name" id="ar-name-lbl">Area name</label><input class="input" id="ar-name" placeholder="e.g. Arrivals Hall" oninput="autoToilet()"></div>
+      <div class="field"><label class="label" for="ar-src">Checklist source (you can still edit below)</label><select class="input" id="ar-src" onchange="applySource()"></select></div>
+    </div>
+    <input type="hidden" id="ar-toilet">
+    <div class="grid2">
+      <div class="field"><label class="label" for="ar-zone">Zone</label><select class="input" id="ar-zone"></select></div>
+      <div class="field"><label class="label" for="ar-tier">Tier</label><select class="input" id="ar-tier"><option value="gold">Gold</option><option value="silver">Silver</option><option value="bronze">Bronze</option></select></div>
+    </div>
+    <div id="ar-custom-items">
+      <div class="field"><label class="label" for="ar-items">Checklist items (one per line)</label><textarea class="input" id="ar-items" rows="8" placeholder="Floor clean&#10;Bins emptied&#10;Lighting working"></textarea></div>
+      <div style="margin-bottom:12px"><button class="btn btn-sm" type="button" onclick="addChecklistLine()">Add item</button></div>
+    </div>
+    <button class="btn btn-brand btn-lg btn-full" onclick="saveArea()">Save</button>
+    <button class="btn btn-danger btn-full" id="ar-del" style="margin-top:8px" hidden onclick="delAreaFromModal()">Delete this area</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-start">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="st-h">
+    <div class="sheet-h"><h3 id="st-h">Start an audit</h3><button class="x" onclick="closeModal('modal-start')" aria-label="Close">×</button></div>
+    <div class="choice">
+      <label class="opt"><input type="radio" name="st-mode" value="internal" checked onchange="onStartMode()"><span><b>Internal audit</b><small>Done by Mitie supervisors and managers</small></span></label>
+      <label class="opt client"><input type="radio" name="st-mode" value="client" onchange="onStartMode()"><span><b>Client audit</b><small>Done together with the client. The report is titled Client Audit Report.</small></span></label>
+    </div>
+    <div id="st-client-wrap" hidden>
+      <div class="field"><label class="label" for="st-client">Client representative</label><input class="input" id="st-client" placeholder="Full name" autocomplete="off"></div>
+      <div class="field"><label class="label" for="st-org">Organisation</label><input class="input" id="st-org" value="Heathrow" autocomplete="off"></div>
+    </div>
+    <button class="btn btn-act btn-lg btn-full" onclick="startRound()">Start audit</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-sign">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sg-h">
+    <div class="sheet-h"><h3 id="sg-h">Finish and sign</h3><button class="x" onclick="closeModal('modal-sign')" aria-label="Close">×</button></div>
+    <div class="note" id="sign-summary"></div>
+    <div id="sign-main">
+      <div class="field"><label class="label" for="sign-name">Mitie supervisor</label><input class="input" id="sign-name" autocomplete="off"></div>
+      <div class="field"><span class="label">Signature (Retina HD)</span><canvas id="sig-modal" class="sig" width="600" height="300" aria-label="Supervisor signature pad"></canvas>
+        <div class="sig-tools"><span>Sign with your finger</span><button class="btn btn-sm btn-quiet" onclick="clearPad('sig-modal')">Clear</button></div></div>
+      <div id="client-sign" hidden>
+        <div class="field"><label class="label" for="client-name">Client representative</label><input class="input" id="client-name" autocomplete="off"></div>
+        <div class="field"><span class="label">Client signature (Retina HD)</span><canvas id="sig-client" class="sig" width="600" height="300" aria-label="Client signature pad"></canvas>
+          <div class="sig-tools"><span>Client signs here</span><button class="btn btn-sm btn-quiet" onclick="clearPad('sig-client')">Clear</button></div></div>
+      </div>
+      <button class="btn btn-act btn-lg btn-full" id="sign-go" onclick="finishSession()">Finish and save report</button>
+    </div>
+    <div id="sign-empty" hidden>
+      <p style="margin-bottom:12px">There are no audits in this round yet. Audit an area first, or cancel the round.</p>
+      <button class="btn btn-danger btn-full" onclick="cancelRound()">Cancel this round</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal-annot">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="an-h">
+    <div class="sheet-h"><h3 id="an-h">Highlight issue on HD photo</h3><button class="x" onclick="closeModal('modal-annot')" aria-label="Close">×</button></div>
+    <p class="muted" style="font-size:13px;margin-bottom:8px">Draw in red with your finger to circle the stain, damage or issue.</p>
+    <canvas id="annot-canvas" class="annot-cv"></canvas>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-full" onclick="resetAnnotation()">Undo drawing</button>
+      <button class="btn btn-act btn-full" onclick="saveAnnotation()">Save HD photo</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal-resolve">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rs-h">
+    <div class="sheet-h"><h3 id="rs-h">Rectify & close action</h3><button class="x" onclick="closeModal('modal-resolve')" aria-label="Close">×</button></div>
+    <input type="hidden" id="rs-aid">
+    <div class="note" id="rs-info"></div>
+    <div class="field"><label class="label" for="rs-owner">Assigned to / Rectified by</label><input class="input" id="rs-owner" placeholder="Staff or supervisor name" autocomplete="off"></div>
+    <div class="field"><label class="label" for="rs-note">Action taken to resolve</label><textarea class="input" id="rs-note" placeholder="e.g. Deep cleaned, restocked soap, reported to maintenance"></textarea></div>
+    <div class="field">
+      <span class="label">After / Rectified Photo (optional HD evidence)</span>
+      <label class="btn btn-sm"><input type="file" accept="image/*" capture="environment" hidden onchange="setResolvePhoto(this)">📷 Take 'After' photo</label>
+      <img id="rs-thumb" class="thumb" hidden alt="Rectified preview">
+    </div>
+    <button class="btn btn-pass btn-lg btn-full" onclick="saveResolution()">Mark as Resolved ✓</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-qr">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="qr-h">
+    <div class="sheet-h"><h3 id="qr-h">Scan QR or Enter Area Code</h3><button class="x" onclick="closeQrScanner()" aria-label="Close">×</button></div>
+    <video id="qr-video" style="width:100%;max-height:240px;background:#000;border-radius:10px;object-fit:cover" playsinline muted hidden></video>
+    <div class="field" style="margin-top:10px">
+      <label class="label" for="qr-code-inp">Type toilet/area code or name (e.g. T3-ARR-M, Gate 10)</label>
+      <input class="input" id="qr-code-inp" placeholder="T3-ARR-M or Gate 10" autocomplete="off" onkeydown="if(event.key==='Enter')goQuickCode()">
+    </div>
+    <button class="btn btn-brand btn-lg btn-full" onclick="goQuickCode()">Open Audit</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-user">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="usr-h">
+    <div class="sheet-h"><h3 id="usr-h">Add user</h3><button class="x" onclick="closeModal('modal-user')" aria-label="Close">×</button></div>
+    <input type="hidden" id="usr-id">
+    <div class="field"><label class="label" for="usr-name">Full name</label><input class="input" id="usr-name" autocomplete="off"></div>
+    <div class="field" id="usr-role-wrap"><label class="label" for="usr-role">Role</label><select class="input" id="usr-role"><option value="supervisor">Supervisor</option><option value="manager">Manager</option></select></div>
+    <div class="field"><label class="label" for="usr-pin" id="usr-pin-lbl">PIN (4 to 6 digits)</label><input class="input" id="usr-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+    <label class="switch-row" id="usr-active-wrap"><input type="checkbox" id="usr-active" checked> Can sign in</label>
+    <button class="btn btn-brand btn-lg btn-full" onclick="saveUser()">Save user</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-toilet">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="tl-h">
+    <div class="sheet-h"><h3 id="tl-h">Add toilet</h3><button class="x" onclick="closeModal('modal-toilet')" aria-label="Close">×</button></div>
+    <input type="hidden" id="tl-id"><input type="hidden" id="tl-area"><input type="hidden" id="tl-name">
+    <p class="muted" id="tl-where" style="margin-bottom:10px;font-size:14px"></p>
+    <div class="field"><label class="label" for="tl-type">Type</label><select class="input" id="tl-type" onchange="autoToiletLabel()"></select></div>
+    <div class="field"><label class="label" for="tl-label">Name shown (numbered for you, you can change it)</label><input class="input" id="tl-label" autocomplete="off" maxlength="40"></div>
+    <button class="btn btn-brand btn-lg btn-full" onclick="saveToilet()">Save toilet</button>
+    <button class="btn btn-danger btn-full" id="tl-del" style="margin-top:8px" onclick="delToilet()">Delete this toilet</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-send">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sd-h">
+    <div class="sheet-h"><h3 id="sd-h">Send the report</h3><button class="x" onclick="closeModal('modal-send')" aria-label="Close">×</button></div>
+    <div class="note" id="sd-summary"></div>
+    <p class="muted" style="font-size:14px;margin-bottom:8px">The audit is finished only when the report is sent.</p>
+    <label class="label" for="sd-to">Send to (separate emails with commas)</label>
+    <textarea class="input" id="sd-to" rows="2" inputmode="email" autocomplete="off" style="min-height:64px"></textarea>
+    <div id="sd-actions"></div>
+    <div id="sd-status" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal-fix">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fx-h">
+    <div class="sheet-h"><h3 id="fx-h">Correct this round</h3><button class="x" onclick="closeModal('modal-fix')" aria-label="Close">×</button></div>
+    <input type="hidden" id="fx-id">
+    <p class="muted" style="font-size:13px;margin-bottom:8px">Every correction is recorded in the activity log with your name and reason.</p>
+    <div class="grid2"><div class="field"><label class="label" for="fx-start">Started</label><input class="input" id="fx-start" type="datetime-local"></div>
+    <div class="field"><label class="label" for="fx-end">Finished</label><input class="input" id="fx-end" type="datetime-local"></div></div>
+    <div class="field"><label class="label" for="fx-reason">Reason for the change</label><input class="input" id="fx-reason" autocomplete="off" placeholder="e.g. phone clock was wrong"></div>
+    <button class="btn btn-brand btn-full" onclick="saveFixTime()">Save new times</button>
+    <h3 style="font-size:17px;margin:16px 0 6px">Audits in this round</h3>
+    <div id="fx-audits"></div>
+    <button class="btn btn-danger btn-full" style="margin-top:12px" onclick="delRoundFix()">Delete the whole round</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-email">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="em-h">
+    <div class="sheet-h"><h3 id="em-h">Email this report</h3><button class="x" onclick="closeModal('modal-email')" aria-label="Close">×</button></div>
+    <div id="em-sheet-body"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal-pin">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pin-h">
+    <div class="sheet-h"><h3 id="pin-h">Change PIN</h3><button class="x" onclick="closeModal('modal-pin')" aria-label="Close">×</button></div>
+    <div class="field" id="pin-old-wrap"><label class="label" for="pin-old" id="pin-old-lbl">Current PIN</label><input class="input" id="pin-old" type="password" inputmode="numeric" autocomplete="off"></div>
+    <div class="field"><label class="label" for="pin-new">New PIN (4 to 6 digits)</label><input class="input" id="pin-new" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+    <div class="field"><label class="label" for="pin-new2">New PIN again</label><input class="input" id="pin-new2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+    <button class="btn btn-brand btn-lg btn-full" onclick="savePin()">Save PIN</button>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+const APP_VERSION='v39';
+const OFFICIAL_HOST='bussinessaudit-oss.github.io';
+const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];
+const TERMINALS=[{id:'T2',name:'Terminal 2',root:'audit_t2'},{id:'T3',name:'Terminal 3',root:'audit_v2'},{id:'T4',name:'Terminal 4',root:'audit_t4'},{id:'T5',name:'Terminal 5',root:'audit_t5'},{id:'HEX',name:'Heathrow Express',root:'audit_hex'}];
+const TERM=(()=>{ let v=null; try{ v=localStorage.getItem('t3a_term'); }catch(e){} return TERMINALS.find(t=>t.id===v)||null; })();
+const TID=TERM?TERM.id:'T3', IS_T3=TID==='T3';
+const LK=k=>IS_T3?k:k+'@'+TID;
+const ZONES=[{id:1,name:'Zone 1',sub:'Landside'},{id:2,name:'Zone 2',sub:'Airside'},{id:3,name:'Zone 3',sub:'Airside'},{id:4,name:'Zone 4',sub:'Airside'}];
+const TIERS=[
+  {id:'gold',name:'Gold',label:'Gold areas',c:'var(--gold)',s:'var(--gold-soft)',hex:'#9A6A00'},
+  {id:'silver',name:'Silver',label:'Silver areas',c:'var(--silver)',s:'var(--silver-soft)',hex:'#56616F'},
+  {id:'bronze',name:'Bronze',label:'Bronze areas',c:'var(--bronze)',s:'var(--bronze-soft)',hex:'#8E4A1C'}];
+const AUDIT_TYPES=[{id:'client',label:'Client',team:'Client Audit'},{id:'internal',label:'Internal',team:'Internal Audit'},{id:'external',label:'External',team:'External Audit'}];
+const TEAM=Object.fromEntries(AUDIT_TYPES.map(t=>[t.id,t.team]));
+const MODE_LABEL={internal:'Internal audit',client:'Client audit'};
+const ROLE_LABEL={admin:'Admin',manager:'Manager',supervisor:'Supervisor'};
+const TYPE_ICO={Male:'🚹',Female:'🚺',Accessible:'♿','Baby Care':'👶',Shower:'🚿',Toilet:'🚻'};
+const TYPE_MAP={M:'Male',F:'Female',A:'Accessible',B:'Baby Care',S:'Shower'};
+const TOILET_TYPE_WORDS={MALE:'Male',FEMALE:'Female',ACCESSIBLE:'Accessible',BABYCARE:'Baby Care',SHOWER:'Shower'};
+const TOILET_CHECKLIST=['Toilet Paper & Baby Roll','Toilet Seat','Urinals','Vanity Units','Vents','Walls & Panels','Bins','Ceilings','Hand Dryer','Hard Floor','Hooks','Lighting','Locks','Mirrors','Pans','Shelf for Bags or Baby Mat','Sluice Room','Smell','Soap'];
+const WALKWAY_CHECKLIST=['Floor swept and mopped','No litter','Handrails and barriers wiped','Walls and glass clean','Signage visible and clear','No obstructions','Bins emptied','Lighting working'];
+const TRAVELATOR_CHECKLIST=['Handrails wiped','Moving surface clean, no litter','Side panels and skirting clean','Floor plates clear of debris','Signage visible at both ends','Lighting working','Emergency stop buttons clear and visible','Barriers and floor edges clean'];
+const ESCALATOR_CHECKLIST=['Steps clean, no litter','Handrails wiped','Comb plates clean and clear of debris','Skirting panels wiped','Signage visible at both ends','Lighting working','Emergency stop buttons clear and visible','Landing areas clear of obstructions'];
+const LIFT_CHECKLIST=['Floor clean, no litter','Walls and mirror clean','Doors and door edges wiped','Buttons and panels wiped','Handrail wiped','Lighting working','Emergency alarm and phone visible','Lift lobby clear of obstructions'];
+const GATE_CHECKLIST=['Floor clean, no litter','Seating wiped and clean','Armrests and seat backs wiped','Bins emptied','Windows and glass clean','Tables and charging points wiped','Signage clear and visible','Gate information screens clean','No spills','Lighting working'];
+const VCC_CHECKLIST=['Jetty floor clean, no litter','Jetty walls and glass clean','Bins emptied','Lift clean (floor, walls, buttons)','Escalator clean (steps, handrails)','Glass and windows clean','Lighting working','No litter or spills'];
+const CONCOURSE_CHECKLIST=['Floor swept and mopped','Seating wiped','Bins emptied','Glass and doors clean','Signage visible and clear','Information screens clean','Lighting working','No litter or spills'];
+const IDL_CHECKLIST=['Seats wiped and clean','Charging points wiped','Bins emptied','Information screens clean','Floor clean, no litter','Lighting working','No spills'];
+const TOILET_SET='Internal Toilet (Bronze)';
+const FAIL_REASONS=[
+  {g:'General',r:['Dust','Run marks / smears','Stain','Litter / debris','Spillage / wet floor','Sticky / residue','Fingerprints / hand marks','Cobwebs','Chewing gum','Graffiti / writing','Bad smell','Not cleaned / missed']},
+  {g:'Bins',r:['Bin not emptied','Bin more than 50% full','Bin overflowing','Bin liner missing','Bin dirty']},
+  {g:'Consumables',r:['Toilet roll empty / low','Soap empty / low','Hand towels empty / low','Sanitary bin full','Baby-change supplies missing'],toilet:1},
+  {g:'Toilet',r:['Limescale','Urine marks / splashes','Blocked toilet / urinal','Pan not flushed','Seat dirty / loose'],toilet:1},
+  {g:'Floors',r:['Floor not mopped','Scuff / black marks','Water pooling','Mud / footprints']},
+  {g:'Glass and metal',r:['Glass smeared','Stainless steel smeared / marked']},
+  {g:'Fabric issues (building / maintenance)',r:['Broken / damaged','Light not working','Hand dryer not working','Lock / door faulty','Leak','Sign missing / damaged','Ceiling tile damaged / missing','Floor tile / surface damaged','Wall or panel damaged','Tap / flush not working','Dispenser broken','Toilet seat / fixture broken'],fault:1}];
+const FAULT_REASONS=new Set(FAIL_REASONS.filter(x=>x.fault).flatMap(x=>x.r));
+const cleanReasons=it=>(it.reasons||[]).filter(x=>!FAULT_REASONS.has(x)), fabricReasons=it=>(it.reasons||[]).filter(x=>FAULT_REASONS.has(x));
+const isCleanIssue=it=>it.status==='fail'&&(cleanReasons(it).length>0||!(it.reasons||[]).length), isFabricIssue=it=>it.status==='fail'&&fabricReasons(it).length>0;
+const faultOnly=reasons=>Array.isArray(reasons)&&reasons.length>0&&reasons.every(x=>FAULT_REASONS.has(x));
+const GOLD_GROUPS=[['Arrivals','Arrivals Concourse','T3-ARR'],['Taxi Rank','Taxi Rank Area','T3-TAX'],['Dep Zone F','Departure Zone F','T3-DEF'],['Dep Zone B','Departure Zone B','T3-DEB'],['1F Oceanic','Dep 1st Floor Oceanic','T3-D1O'],['1F Boots','Dep 1st Floor Boots','T3-D1B']];
+const BRONZE_RAW=[
+'T3-ZE-M|Zone E|M|BOH Zone E','T3-ZE-F|Zone E|F|BOH Zone E','T3-ZB-M|Zone B|M|BOH Zone B','T3-ZB-F|Zone B|F|BOH Zone B',
+'T3-SW2550-F|SW 2550|F|Southwing 2nd Floor','T3-SW2523-F|SW 2523|F|Southwing 2nd Floor','T3-SW2553-M|SW 2553|M|Southwing 2nd Floor','T3-SW2520-M|SW 2520|M|Southwing 2nd Floor','T3-SW2551-A|SW 2551|A|Southwing 2nd Floor','T3-SW2552-S|SW 2552|S|Southwing 2nd Floor','T3-SW2521-S|SW 2521|S|Southwing 2nd Floor',
+'T3-SW3523-F|SW 3523|F|Southwing 3rd Floor','T3-SW3550-F|SW 3550|F|Southwing 3rd Floor','T3-SW3520-M|SW 3520|M|Southwing 3rd Floor','T3-SW3553-M|SW 3553|M|Southwing 3rd Floor','T3-SW3551-A|SW 3551|A|Southwing 3rd Floor','T3-SW3521-S|SW 3521|S|Southwing 3rd Floor',
+'T3-SW5552-S|SW 5552|S|Southwing 5th Floor',
+'T3-EW1-M|East Wing 1F|M|East Wing 1st Floor','T3-EW1-F|East Wing 1F|F|East Wing 1st Floor','T3-EW2-M|East Wing 2F|M|East Wing 2nd Floor','T3-EW2-F|East Wing 2F|F|East Wing 2nd Floor',
+'T3-NI2-M|N.Infill 2F|M|North Infill 2nd Floor','T3-NI2-F|N.Infill 2F|F|North Infill 2nd Floor','T3-NI2-A|N.Infill 2F|A|North Infill 2nd Floor',
+'T3-NI3-M|N.Infill 3F|M|North Infill 3rd Floor','T3-NI3-F|N.Infill 3F|F|North Infill 3rd Floor','T3-NI3-A|N.Infill 3F|A|North Infill 3rd Floor',
+'T3-MP-M|Man Power|M|Man Power Area','T3-MP-F|Man Power|F|Man Power Area',
+'T3-CP1-M|MSCP3 L1|M|Carpark Level 1','T3-CP1-F|MSCP3 L1|F|Carpark Level 1','T3-CP1-A|MSCP3 L1|A|Carpark Level 1'];
+const TOILET_DEFS=[
+  ...GOLD_GROUPS.flatMap(([name,area,pre])=>['M','F','A','B'].map(c=>({id:pre+'-'+c,name,type:TYPE_MAP[c],area,tier:'gold',zone:1}))),
+  ...BRONZE_RAW.map(r=>{const [id,name,c,area]=r.split('|');return {id,name,type:TYPE_MAP[c],area,tier:'bronze',zone:1};})
+];
+const BUILTIN_TOILETS=IS_T3?TOILET_DEFS:[];
+const SEED_AREAS=[
+  {zone:1,tier:'gold',name:'Check-In FOH — Zones A–G',items:['Floor spotless — No Litter','Check-in Desks Wiped','Queue Lines Clean','Windows Clean','Signage Clear','Trolley Bays Tidy','Customer Info Points Clean','Seating Clean','No Spills','Lighting Working']},
+  {zone:1,tier:'gold',name:'Arrivals Hall',items:['Main Floor Polished','Trolley Bays Tidy','Info Desks Clean','Welcome Boards Clean','No Litter','Queue Barrier Clean','Bins Emptied','Windows Sparkling','Seating Clean','Lighting Working']},
+  {zone:1,tier:'gold',name:'Taxi / Coach Park',items:['Ground Clear','Waiting Areas Clean','Signage Clean','Bollards Wiped','No Oil Spills','Bins Emptied','Lighting Working']},
+  {zone:1,tier:'bronze',name:'Back of House — Zones A–H',items:['BOH Corridors Clear','Staff Areas Tidy','No Floor Hazards','Notice Boards Updated','Bins Emptied','Fire Exits Clear','Equipment Stored','Staff Rooms Clean']},
+  {zone:1,tier:'bronze',name:'Walkway',items:['Floor Swept & Mopped','No Litter','Good Lighting','Signage Visible','No Obstructions','Barriers Clean']},
+  {zone:1,tier:'bronze',name:'Staff Search — Departure',items:['Area Clear of Debris','Floor Clean','Seating Wiped','Bins Emptied']},
+  {zone:1,tier:'bronze',name:'Staff Exit',items:['Doors Clean','Noticeboards Tidy','Floor Clean','Ashtrays Emptied']},
+  {zone:1,tier:'bronze',name:'Staff Search — Arrivals',items:['Area Clear','Floor Clean','Equipment Tidy','Bins Emptied']},
+  {zone:1,tier:'bronze',name:'Blue Corridor / Link Bridge',items:['Corridor Swept','No Obstructions','Glass Panels Clean','Lighting OK','Emergency Exits Clear']},
+  {zone:1,tier:'bronze',name:'Lifts — Levels 0–5',items:['Lift Car Floor Clean','Walls/Panels Wiped','Buttons Clean','No Graffiti','Lighting Working','Mirror Clean','Threshold Clear','Lobby Clean']},
+  {zone:1,tier:'bronze',name:'Offices',items:['Desks Wiped','Bins Emptied','Floor Vacuumed','Windows Clean','Kitchen Clean','Lighting Working']},
+];
+const ZONE1_SILVER=[
+  {name:'Forcourt',items:['Floor swept, no litter','Bins emptied','Glass and doors clean','Seating wiped','Signage visible','Lighting working','No spills']},
+  {name:'Prayer Room',items:['Floor clean and vacuumed','Prayer mats tidy','Seating wiped','Windows clean','Bins emptied','Shoe area tidy','Lighting working','No odour']},
+  {name:'SUBWAY',items:['Floor clean, no litter','Counters wiped','Tables and chairs wiped','Bins emptied','Equipment area clean','Glass clean','Lighting working','No spills']}
+];
+const AREA_KINDS=[
+  {id:'toilet',label:'Toilets',menu:'🚻 Toilets',ico:'🚻',hint:'e.g. Superdry, WDF, Pier 6 Arrival'},
+  {id:'gate',label:'Gate Rooms',menu:'🚪 Gate Rooms',ico:'🚪',hint:'e.g. Gate 10, Gate 11, Gate 12',parts:[{n:'Gate Room',items:GATE_CHECKLIST,on:1}]},
+  {id:'walkway',label:'Walkways',menu:'🚶 Walkways',ico:'🚶',hint:'e.g. Walkway A, Pier 6 Link',parts:[{n:'Walkway',items:WALKWAY_CHECKLIST,on:1},{n:'Travelator',items:TRAVELATOR_CHECKLIST,on:1},{n:'Escalator',items:ESCALATOR_CHECKLIST},{n:'Lift',items:LIFT_CHECKLIST}]},
+  {id:'concourse',label:'Arrivals Concourse',menu:'✈️ Arrivals Concourse (VCC)',ico:'✈️',hint:'e.g. Gate 10, Gate 12',parts:[{n:'Concourse',items:CONCOURSE_CHECKLIST,on:1},{n:'VCC',items:VCC_CHECKLIST,on:1}]},
+  {id:'idl',label:'IDL',menu:'🛋️ IDL',ico:'🛋️',hint:'e.g. Superdry Side, WH Smith Side, Sea Food Side',parts:[{n:'Seating Area',items:IDL_CHECKLIST,on:1}]},
+  {id:'other',label:'Other Areas',menu:'📋 Other (custom checklist)',ico:'📋'}
+];
+const KIND_LABEL=Object.fromEntries(AREA_KINDS.map(k=>[k.id,k.label]));
+const kindOf=id=>AREA_KINDS.find(k=>k.id===id)||AREA_KINDS[AREA_KINDS.length-1];
+const PART_ICO={'Gate Room':'🚪',Walkway:'🚶',Travelator:'➡️',Escalator:'↗️',Lift:'🔼',Concourse:'🏢',VCC:'✈️','Seating Area':'💺'};
+const LANDSIDE_HIDE=['gate','concourse','idl'];
+function areaKindOf(a){
+  if(a.kind) return a.kind;
+  if(a.grp) return 'other';
+  const n=a.name||'';
+  if(a.group==='VCC'||/\bvcc\b|concourse/i.test(n)) return 'concourse';
+  if(a.group==='Walkways'||/travelator|escalator|walkway|\blifts?\b/i.test(n)) return 'walkway';
+  if(/\bgate\b/i.test(n)) return 'gate';
+  if(/\bidl\b/i.test(n)) return 'idl';
+  return 'other';
+}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const encArg=s=>encodeURIComponent(s).replace(/'/g,'%27');
+const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const todayStr=()=>{const d=new Date(),off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,10);};
+const pctOf=(p,f)=>(p+f)?Math.round(p/(p+f)*100):0;
+const areaById=id=>ST.areas.find(a=>a.id===id);
+const tierOf=t=>TIERS.find(x=>x.id===t)||{id:t,name:String(t||''),label:String(t||''),c:'var(--muted)',s:'var(--na-soft)',hex:'#6B7280'};
+const zoneOf=z=>ZONES.find(x=>x.id===+z)||{id:z,name:'Zone '+z,sub:''};
+const validDate=iso=>iso&&Number.isFinite(new Date(iso).getTime());
+const fmtDate=iso=>validDate(iso)?new Date(iso).toLocaleDateString('en-GB'):'-';
+const fmtTime=iso=>validDate(iso)?new Date(iso).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'-';
+const fmtDT=iso=>validDate(iso)?fmtDate(iso)+' '+fmtTime(iso):'-';
+function fmtDur(ms){ if(!ms||ms<0) return '-'; const m=Math.floor(ms/60000), s=Math.floor((ms%60000)/1000); return m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+'m '+s+'s'; }
+const initials=n=>String(n||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?';
+function slaFor(tier){
+  const s=settings();
+  if(tier){ const v=parseFloat(s['sla_'+tier]); if(Number.isFinite(v)) return v; }
+  const g=parseFloat(s.slaTarget); return Number.isFinite(g)?g:90;
+}
+const pctColor=(p,tier)=>{ const t=slaFor(tier); return p>=t?'var(--pass)':p>=t-15?'var(--warn)':'var(--fail)'; };
+const pctHex=(p,tier)=>{ const t=slaFor(tier); return p>=t?'#0F7B55':p>=t-15?'#B26A00':'#C62828'; };
+function toast(msg,err=false){ const t=$('toast'); t.textContent=msg; t.className=err?'show err':'show'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.className='',2800); }
+
+function sha256(str){
+  const bytes=typeof TextEncoder!=='undefined'?new TextEncoder().encode(String(str)):Uint8Array.from(unescape(encodeURIComponent(String(str))),c=>c.charCodeAt(0));
+  const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const l=bytes.length, nWords=(((l+8)>>6)+1)*16, words=new Array(nWords).fill(0);
+  for(let i=0;i<l;i++) words[i>>2]|=(bytes[i]&0xff)<<(24-(i%4)*8);
+  words[l>>2]|=0x80<<(24-(l%4)*8);
+  words[nWords-1]=l*8;
+  const w=new Array(64);
+  for(let j=0;j<nWords;j+=16){
+    let a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for(let i=0;i<64;i++){
+      if(i<16) w[i]=words[j+i]|0;
+      else{ const x=w[i-15], y=w[i-2];
+        const s0=((x>>>7)|(x<<25))^((x>>>18)|(x<<14))^(x>>>3);
+        const s1=((y>>>17)|(y<<15))^((y>>>19)|(y<<13))^(y>>>10);
+        w[i]=(w[i-16]+s0+w[i-7]+s1)|0; }
+      const S1=((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7));
+      const ch=(e&f)^(~e&g);
+      const t1=(h+S1+ch+K[i]+w[i])|0;
+      const S0=((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10));
+      const t2=(S0+((a&b)^(a&c)^(b&c)))|0;
+      h=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0;
+    }
+    H=[(H[0]+a)|0,(H[1]+b)|0,(H[2]+c)|0,(H[3]+d)|0,(H[4]+e)|0,(H[5]+f)|0,(H[6]+g)|0,(H[7]+h)|0];
+  }
+  return H.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
+}
+const hashPin=(salt,pin)=>sha256(salt+'|'+pin);
+
+const KV_LS=IS_T3?'t3a_kv_':'t3a_kv_'+TID+'_';
+const KV={db:null,
+  open(){ return new Promise(res=>{ if(!('indexedDB' in window)) return res(false); let r; try{ r=indexedDB.open(IS_T3?'t3audit':'t3audit_'+TID.toLowerCase(),1); }catch(e){ return res(false); }
+    r.onupgradeneeded=()=>{ try{ r.result.createObjectStore('kv'); }catch(e){} };
+    r.onsuccess=()=>{ KV.db=r.result; res(true); }; r.onerror=()=>res(false); r.onblocked=()=>res(false); }); },
+  get(k){ if(!KV.db){ try{ const v=localStorage.getItem(KV_LS+k); return Promise.resolve(v?JSON.parse(v):undefined); }catch(e){ return Promise.resolve(undefined); } }
+    return new Promise(res=>{ try{ const q=KV.db.transaction('kv','readonly').objectStore('kv').get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>res(undefined); }catch(e){ res(undefined); } }); },
+  set(k,v){ if(!KV.db){ try{ localStorage.setItem(KV_LS+k,JSON.stringify(v)); return Promise.resolve(true); }catch(e){ return Promise.resolve(false); } }
+    return new Promise(res=>{ try{ const tx=KV.db.transaction('kv','readwrite'); tx.objectStore('kv').put(v,k); tx.oncomplete=()=>res(true); tx.onerror=()=>res(false); tx.onabort=()=>res(false); }catch(e){ res(false); } }); },
+  del(k){ if(!KV.db){ try{ localStorage.removeItem(KV_LS+k); }catch(e){} return Promise.resolve(true); }
+    return new Promise(res=>{ try{ const tx=KV.db.transaction('kv','readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete=()=>res(true); tx.onerror=()=>res(false); }catch(e){ res(false); } }); },
+  clear(){ if(!KV.db) return Promise.resolve(true);
+    return new Promise(res=>{ try{ const tx=KV.db.transaction('kv','readwrite'); tx.objectStore('kv').clear(); tx.oncomplete=()=>res(true); tx.onerror=()=>res(false); }catch(e){ res(false); } }); }
+};
+const lsGet=k=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } };
+const lsSet=(k,v)=>{ try{ if(v===null||v===undefined) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} };
+
+const COLLS=['areas','toilets','users','sessions','audits','config','logs'];
+let ST={areas:[],toilets:[],users:[],sessions:[],audits:[],config:[],logs:[]};
+let META={outbox:{},lastSync:{},lastTomb:{},legacyIds:null,legacyFlags:null,needLegacyCloud:false,lastOk:''};
+const BLOBS=new Map();
+let CUR_UID=null;
+
+const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true};
+function settings(){ return {...DEFAULT_SETTINGS,...(ST.config.find(c=>c.id==='settings')||{})}; }
+function saveSettings(patch){ put('config',{...settings(),...patch,id:'settings'}); }
+function flags(){ return ST.config.find(c=>c.id==='flags')||{id:'flags'}; }
+function setFlag(k,v){ put('config',{...flags(),[k]:v,id:'flags'}); }
+
+function normalize(c,r){
+  if(c==='areas'||c==='audits') r.items=Array.isArray(r.items)?r.items:(r.items&&typeof r.items==='object'?Object.values(r.items):[]);
+  if(c==='audits'){ r.pass=+r.pass||0; r.fail=+r.fail||0; r.na=+r.na||0; r.items.forEach(it=>{ if(it&&!it.status) it.status='none'; }); }
+  return r;
+}
+function serialize(c,r){ if(c==='sessions'){ const {audits,...rest}=r; return rest; } return r; }
+let LAST={};
+const localDay=iso=>{ const d=new Date(iso); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+function applyFixes(){
+  const fx=(ST.logs||[]).filter(l=>l&&l.fix&&l.fix.id).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  if(!fx.length) return;
+  const delS=new Set(), delA=new Set(), time={}, resA={};
+  fx.forEach(l=>{ const f=l.fix;
+    if(f.type==='del-session') delS.add(f.id);
+    else if(f.type==='del-audit') delA.add(f.id);
+    else if(f.type==='time') time[f.id]={...f,lid:l.id};
+    else if(f.type==='resolve-audit') resA[f.id]={...f,at:l.at,by:l.byName};
+  });
+  if(delS.size||delA.size){ ST.sessions=ST.sessions.filter(s=>!delS.has(s.id)); ST.audits=ST.audits.filter(a=>!delA.has(a.id)&&!delS.has(a.sessionId)); }
+  Object.values(time).forEach(f=>{
+    const s=ST.sessions.find(x=>x.id===f.id); if(!s||s._fix===f.lid) return;
+    if(!s._origStart) s._origStart=s.start;
+    const delta=new Date(f.start)-new Date(s._origStart); if(!Number.isFinite(delta)) return;
+    s.start=f.start; if(f.end) s.end=f.end; s._fix=f.lid;
+    ST.audits.filter(a=>a.sessionId===s.id).forEach(a=>{ if(a._fix===f.lid) return; if(!a._origEnd) a._origEnd=a.endedAt||s._origStart;
+      const t=new Date(new Date(a._origEnd).getTime()+delta); if(!Number.isFinite(t.getTime())) return; a.endedAt=t.toISOString(); a.date=localDay(a.endedAt); a._fix=f.lid; });
+  });
+  Object.values(resA).forEach(r=>{
+    const a=ST.audits.find(x=>x.id===r.id); if(!a) return;
+    a.followUpStatus='resolved'; a.followUpOwner=r.owner||r.by||''; a.resolvedNote=r.note||''; a.resolvedPhotoId=r.photoId||''; a.resolvedAt=r.at;
+  });
+}
+function linkAudits(){
+  applyFixes();
+  const m={}; LAST={};
+  ST.audits.forEach(a=>{ (m[a.sessionId]=m[a.sessionId]||[]).push(a); const l=LAST[a.areaId]; if(!l||(a.endedAt||'')>(l.endedAt||'')) LAST[a.areaId]=a; });
+  ST.sessions.forEach(s=>{ s.audits=(m[s.id]||[]).sort((x,y)=>(x.endedAt||'').localeCompare(y.endedAt||'')); });
+}
+const lastAuditFor=id=>LAST[id]||null;
+function put(coll,rec){
+  rec.lu=Date.now();
+  const arr=ST[coll], i=arr.findIndex(x=>x.id===rec.id);
+  if(i>=0) arr[i]=rec; else arr.push(rec);
+  queue(coll,rec.id,false);
+}
+function drop(coll,id){ ST[coll]=ST[coll].filter(x=>x.id!==id); queue(coll,id,true); }
+function queue(coll,id,del){ META.outbox[coll+'/'+id]={coll,id,del:!!del,t:Date.now()}; persistSoon(); flushSoon(); setSync(); }
+
+let persistTimer=null;
+function persistSoon(){ clearTimeout(persistTimer); persistTimer=setTimeout(persistNow,250); }
+async function persistNow(){
+  clearTimeout(persistTimer);
+  if(!TERM) return;
+  const snap={}; COLLS.forEach(c=>{ snap[c]=ST[c].map(r=>serialize(c,r)); });
+  const ok=await KV.set('state',snap); await KV.set('meta',META);
+  if(!ok) toast('This phone is out of storage space. Free some space so audits are kept.',true);
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') persistNow(); });
+window.addEventListener('pagehide',()=>persistNow());
+
+async function putBlob(dataUrl){
+  const id=newId('b'); BLOBS.set(id,dataUrl); await KV.set('blob:'+id,dataUrl);
+  META.outbox['blobs/'+id]={coll:'blobs',id,t:Date.now()}; persistSoon(); flushSoon(); return id;
+}
+async function getLocalBlob(id){ if(BLOBS.has(id)) return BLOBS.get(id); const v=await KV.get('blob:'+id); if(v) BLOBS.set(id,v); return v||''; }
+async function getBlob(id){
+  if(!id) return '';
+  const v=await getLocalBlob(id); if(v) return v;
+  if(DB&&ONLINE){ try{ const s=await withTimeout(DB.ref(ROOT+'/blobs/'+id).once('value'),15000); const d=s&&s.val(); if(d){ BLOBS.set(id,d); KV.set('blob:'+id,d); return d; } }catch(e){} }
+  return '';
+}
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+
+function convertLegacy(old){
+  const out={areas:[],toilets:[],sessions:[],audits:[],blobs:{},flags:{}};
+  if(!old||typeof old!=='object') return out;
+  out.flags.seedZ1=!!old.seedZ1;
+  const sessions=Array.isArray(old.sessions)?old.sessions:[];
+  const audited=new Set(sessions.flatMap(s=>(s.audits||[]).map(a=>a.areaId)));
+  (old.areas||[]).forEach(a=>{
+    if(!a||!a.id) return;
+    if(a.toilet){
+      const clean=String(a.name||'').replace(/\s+/g,' ').trim();
+      const m=clean.match(/^(.*?)\s+(MALE|FEMALE|ACCESSIBLE|BABY ?CARE|SHOWER)\s+TOILET$/i);
+      const loc=m?m[1]:clean, type=m?TOILET_TYPE_WORDS[m[2].toUpperCase().replace(/\s/g,'')]:'Toilet';
+      out.toilets.push({id:'m'+a.id,name:loc,type,area:loc,tier:a.tier,zone:a.zone}); return;
+    }
+    const guessed=(/^v[234]\d/.test(a.id)&&['Arrival Concourse','VCC Lift','VCC Escalator'].includes(a.name))||(/^w[234]\d/.test(a.id)&&a.name==='Lift');
+    if(guessed&&!audited.has(a.id)) return;
+    out.areas.push({...a,items:Array.isArray(a.items)?[...a.items]:[]});
+  });
+  (old.toilets||[]).forEach(t=>{ if(t&&t.id&&!out.toilets.some(x=>x.id===t.id)) out.toilets.push({...t}); });
+  sessions.forEach(s=>{
+    if(!s||!s.id) return;
+    const {audits,sig,clientSig,...rest}=s;
+    const sess={...rest,ownerId:'legacy',ownerName:s.auditor||'',mode:(audits||[]).some(a=>a.type==='client')?'client':'internal'};
+    if(sig){ const bid='bs'+s.id; out.blobs[bid]=sig; sess.sigId=bid; }
+    if(clientSig){ const bid='bc'+s.id; out.blobs[bid]=clientSig; sess.clientSigId=bid; }
+    out.sessions.push(sess);
+    (audits||[]).forEach((a,ai)=>{
+      const aid=a.id||('au'+s.id+'_'+ai);
+      const items=(a.items||[]).map((it,ii)=>{ const {photo,...r}=it||{}; if(photo){ const bid='bp'+aid+'_'+ii; out.blobs[bid]=photo; r.photoId=bid; } return r; });
+      out.audits.push({...a,id:aid,sessionId:s.id,items,auditorName:a.auditorName||s.auditor||''});
+    });
+  });
+  return out;
+}
+async function absorbLegacy(conv){
+  META.legacyIds=META.legacyIds||{};
+  for(const c of ['areas','toilets','sessions','audits']){
+    const ids=new Set(META.legacyIds[c]||[]);
+    conv[c].forEach(r=>{ if(!ST[c].some(x=>x.id===r.id)) ST[c].push(normalize(c,r)); ids.add(r.id); });
+    META.legacyIds[c]=[...ids];
+  }
+  const bids=new Set(META.legacyIds.blobs||[]);
+  for(const [id,data] of Object.entries(conv.blobs)){ BLOBS.set(id,data); await KV.set('blob:'+id,data); bids.add(id); }
+  META.legacyIds.blobs=[...bids];
+  if(conv.flags&&conv.flags.seedZ1) META.legacyFlags={seedZ1:true};
+}
+
+async function loadLocal(){
+  await KV.open();
+  const snap=await KV.get('state'), meta=await KV.get('meta');
+  if(meta&&typeof meta==='object') META={...META,...meta,outbox:meta.outbox||{},lastSync:meta.lastSync||{},lastTomb:meta.lastTomb||{}};
+  if(snap&&typeof snap==='object'){ COLLS.forEach(c=>{ ST[c]=Array.isArray(snap[c])?snap[c]:[]; }); }
+  else if(IS_T3&&!lsGet('t3a_migrated')){
+    let old=null; try{ const raw=lsGet('t3audit_v5'); if(raw) old=JSON.parse(raw); }catch(e){}
+    if(old) await absorbLegacy(convertLegacy(old));
+    META.needLegacyCloud=true;
+    lsSet('t3a_migrated','1');
+    await persistNow();
+  }
+  COLLS.forEach(c=>ST[c].forEach(r=>normalize(c,r)));
+  linkAudits();
+  CUR_UID=lsGet(LK('t3a_uid'));
+}
+
+const FB_CONFIG={apiKey:"AIzaSyAN2l7fomSx8YtPHHsgJqZ0ndQnaDicRBs",authDomain:"audit-t3-1660b.firebaseapp.com",databaseURL:"https://audit-t3-1660b-default-rtdb.europe-west1.firebasedatabase.app",projectId:"audit-t3-1660b",storageBucket:"audit-t3-1660b.firebasestorage.app",messagingSenderId:"674561233385",appId:"1:674561233385:web:db1fc760b0a0a95996bb78"};
+const FB_BASE='https://www.gstatic.com/firebasejs/10.12.2/';
+const ROOT=TERM?TERM.root:'audit_v2';
+let DB=null, ONLINE=false, CLOUD_LOADED=false, AUTH_STATE='none', SYNC_ERR='', flushing=false, flushTimer=null, loadTry=0;
+const CLOUD_IDS={}, TOMB_IDS={};
+
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.async=false; s.onload=()=>res(); s.onerror=()=>{ s.remove(); rej(new Error('Could not load '+src)); }; document.head.appendChild(s); }); }
+let FB_LOADING=null;
+function ensureFirebase(){
+  if(window.firebase&&firebase.database) return Promise.resolve(true);
+  if(FB_LOADING) return FB_LOADING;
+  FB_LOADING=(async()=>{ try{ await loadScript(FB_BASE+'firebase-app-compat.js'); await loadScript(FB_BASE+'firebase-auth-compat.js'); await loadScript(FB_BASE+'firebase-database-compat.js'); return true; }catch(e){ FB_LOADING=null; return false; } })();
+  return FB_LOADING;
+}
+async function signInFirebase(){
+  if(!window.firebase||!firebase.auth) return;
+  if(!/^https?:$/.test(location.protocol)){ AUTH_STATE='off'; return; }
+  try{ await withTimeout(Promise.resolve().then(()=>firebase.auth().signInAnonymously()),8000); AUTH_STATE='ok'; }
+  catch(e){ AUTH_STATE='off'; SYNC_ERR=SYNC_ERR||''; }
+}
+let CLOUD_STEP='Starting';
+async function initCloud(){
+  if(DB) return;
+  CLOUD_STEP='Loading Firebase'; setSync();
+  const ok=await ensureFirebase(); if(!ok){ CLOUD_STEP='Could not load Firebase'; SYNC_ERR='Firebase did not load. Check the internet connection.'; setSync(); setTimeout(()=>{ if(!DB) initCloud(); },10000); return; }
+  try{ if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG); DB=firebase.database(); }catch(e){ DB=null; setSync(); return; }
+  DB.ref('.info/connected').on('value',s=>{ ONLINE=!!s.val(); setSync(); if(ONLINE) flushSoon(); });
+  setTimeout(()=>{ signInFirebase(); },0);
+  CLOUD_STEP='Reading shared data'; setSync();
+  loadCloud();
+}
+window.addEventListener('online',()=>{ if(!DB) initCloud(); });
+
+async function loadCloud(){
+  if(!DB) return;
+  try{
+    const full={};
+    for(const coll of COLLS){
+      const since=META.lastSync[coll]||0; full[coll]=!since;
+      CLOUD_IDS[coll]=new Set(); TOMB_IDS[coll]=new Set();
+      const snap=await DB.ref(ROOT+'/'+coll).orderByChild('u').startAt(since).once('value');
+      snap.forEach(ch=>{ CLOUD_IDS[coll].add(ch.key); applyRemote(coll,ch.key,ch.val()); });
+      const tsnap=await DB.ref(ROOT+'/tomb/'+coll).orderByValue().startAt(META.lastTomb[coll]||0).once('value');
+      tsnap.forEach(ch=>{ TOMB_IDS[coll].add(ch.key); applyRemoteDelete(coll,ch.key,ch.val()); });
+    }
+    CLOUD_LOADED=true; SYNC_ERR=''; loadTry=0;
+    await afterCloudLoad(COLLS.every(c=>full[c]));
+    listen();
+    META.lastOk=new Date().toISOString();
+    remoteChanged(true);
+    flushSoon();
+  }catch(e){
+    SYNC_ERR=String(e&&(e.code||e.message)||e); setSync();
+    if(AUTH_STATE!=='ok') await signInFirebase();
+    loadTry++; setTimeout(loadCloud,Math.min(60000,5000*loadTry));
+  }
+}
+function listen(){
+  COLLS.forEach(coll=>{
+    const q=DB.ref(ROOT+'/'+coll).orderByChild('u').startAt(META.lastSync[coll]||0);
+    q.on('child_added',s=>{ applyRemote(coll,s.key,s.val()); remoteChanged(); },e=>{ SYNC_ERR=String(e&&e.code||e); setSync(); });
+    q.on('child_changed',s=>{ applyRemote(coll,s.key,s.val()); remoteChanged(); });
+    DB.ref(ROOT+'/tomb/'+coll).orderByValue().startAt(META.lastTomb[coll]||0).on('child_added',s=>{ applyRemoteDelete(coll,s.key,s.val()); remoteChanged(); });
+  });
+}
+function applyRemote(coll,id,val){
+  if(!val||typeof val!=='object') return;
+  const u=+val.u||0; if(u>(META.lastSync[coll]||0)) META.lastSync[coll]=u;
+  if(META.outbox[coll+'/'+id]) return;
+  const rec=normalize(coll,{...val,id});
+  const arr=ST[coll], i=arr.findIndex(x=>x.id===id);
+  if(i>=0) arr[i]=rec; else arr.push(rec);
+}
+function applyRemoteDelete(coll,id,ts){
+  const t=+ts||0; if(t>(META.lastTomb[coll]||0)) META.lastTomb[coll]=t;
+  const o=META.outbox[coll+'/'+id]; if(o&&!o.del) return;
+  ST[coll]=ST[coll].filter(x=>x.id!==id);
+}
+async function afterCloudLoad(full){
+  if(META.needLegacyCloud){
+    try{ const s=await DB.ref('t3audit').once('value'); const v=s.val(); if(v&&v.data) await absorbLegacy(convertLegacy(JSON.parse(v.data))); }catch(e){}
+    META.needLegacyCloud=false;
+  }
+  if(META.legacyIds&&full){
+    let idx={}; try{ idx=(await DB.ref(ROOT+'/blobIndex').once('value')).val()||{}; }catch(e){}
+    for(const c of ['areas','toilets','sessions','audits']){
+      for(const id of (META.legacyIds[c]||[])){
+        if(TOMB_IDS[c].has(id)){ ST[c]=ST[c].filter(x=>x.id!==id); continue; }
+        if(CLOUD_IDS[c].has(id)) continue;
+        if(ST[c].some(x=>x.id===id)) META.outbox[c+'/'+id]={coll:c,id,del:false,t:Date.now()};
+      }
+    }
+    for(const id of (META.legacyIds.blobs||[])) if(!idx[id]) META.outbox['blobs/'+id]={coll:'blobs',id,t:Date.now()};
+    if(META.legacyFlags&&META.legacyFlags.seedZ1&&!flags().seedZ1) setFlag('seedZ1',true);
+    META.legacyIds=null; META.legacyFlags=null;
+  }
+  if(IS_T3&&!ST.areas.length&&!flags().seedBase) seedBase();
+  if(IS_T3&&!flags().seedZ1) addZone1Silver();
+  linkAudits();
+}
+function seedBase(){ const t=Date.now(); SEED_AREAS.forEach((a,i)=>put('areas',{id:'a'+(t+i),...a,items:[...a.items]})); setFlag('seedBase',true); }
+function addZone1Silver(){
+  ZONE1_SILVER.forEach((z,i)=>{ if(ST.areas.some(a=>a.zone===1&&a.tier==='silver'&&a.name===z.name)) return; put('areas',{id:'s'+Date.now()+i,name:z.name,zone:1,tier:'silver',items:[...z.items]}); });
+  setFlag('seedZ1',true);
+}
+
+function flushSoon(){ clearTimeout(flushTimer); flushTimer=setTimeout(flush,350); }
+async function flush(){
+  if(!DB||!ONLINE||!CLOUD_LOADED||flushing){ setSync(); return; }
+  flushing=true; setSync();
+  const TS=firebase.database.ServerValue.TIMESTAMP;
+  try{
+    for(const key of Object.keys(META.outbox)){
+      const o=META.outbox[key]; if(!o) continue;
+      try{
+      if(o.coll==='blobs'){
+        const d=await getLocalBlob(o.id);
+        if(d){ await DB.ref(ROOT+'/blobs/'+o.id).set(d); await DB.ref(ROOT+'/blobIndex/'+o.id).set(d.length); }
+      } else if(o.del){
+        await DB.ref(ROOT+'/'+o.coll+'/'+o.id).remove();
+        await DB.ref(ROOT+'/tomb/'+o.coll+'/'+o.id).set(TS);
+      } else {
+        const r=ST[o.coll].find(x=>x.id===o.id);
+        if(r){ const data=JSON.parse(JSON.stringify(serialize(o.coll,r))); delete data.id; data.u=TS; await DB.ref(ROOT+'/'+o.coll+'/'+o.id).set(data); }
+      }
+      }catch(err){
+        if(/PERMISSION|permission/.test(String(err&&(err.code||err.message)))&&['audits','sessions','blobs'].includes(o.coll)){ if(META.outbox[key]===o) delete META.outbox[key]; continue; }
+        throw err;
+      }
+      if(META.outbox[key]===o) delete META.outbox[key];
+    }
+    SYNC_ERR=''; META.lastOk=new Date().toISOString();
+  }catch(e){ SYNC_ERR=String(e&&(e.code||e.message)||e); }
+  flushing=false; persistSoon(); setSync();
+  if(Object.keys(META.outbox).length&&!SYNC_ERR) flushSoon();
+  else if(SYNC_ERR) setTimeout(flushSoon,20000);
+}
+function pendingCount(){ return Object.keys(META.outbox).length; }
+function setSync(){
+  const el=$('sync'), tx=$('sync-txt'); if(!el) return;
+  const n=pendingCount(); let cls='off', t='Offline';
+  if(/PERMISSION|permission/.test(SYNC_ERR)){ cls='off'; t='Sync blocked'; }
+  else if(!DB||!ONLINE){ cls='off'; t=n?`Offline, ${n} waiting`:'Offline'; }
+  else if(!CLOUD_LOADED){ cls='busy'; t='Connecting'; }
+  else if(flushing||n){ cls='busy'; t=n?`Uploading ${n}`:'Saving'; }
+  else { cls='on'; t='Synced'; }
+  el.className='sync '+cls; tx.textContent=t;
+  const card=$('login-card'); if(card&&card.dataset.mode==='wait'&&$('login').classList.contains('open')&&typeof renderLogin==='function') renderLogin();
+}
+let remoteTimer=null;
+function remoteChanged(now){
+  clearTimeout(remoteTimer);
+  const go=()=>{ linkAudits(); persistSoon(); setSync(); checkMe(); refreshView(); };
+  if(now) go(); else remoteTimer=setTimeout(go,250);
+}
+
+const IC={
+  chev:'<svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
+  edit:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>',
+  bin:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>'
+};
+
+function me(){ return CUR_UID?ST.users.find(u=>u.id===CUR_UID&&u.active!==false)||null:null; }
+const role=()=>(me()||{}).role||'';
+const isAdmin=()=>role()==='admin';
+const isManager=()=>role()==='admin'||role()==='manager';
+function activeUsers(){ return ST.users.filter(u=>u.active!==false).sort((a,b)=>((a.role==='admin')?0:1)-((b.role==='admin')?0:1)||String(a.name).localeCompare(String(b.name))); }
+function visibleSessions(){ const m=me(); if(!m) return []; return isManager()?ST.sessions:ST.sessions.filter(s=>s.ownerId===m.id); }
+function visibleAudits(){ const m=me(); if(!m) return []; if(isManager()) return ST.audits; const ids=new Set(visibleSessions().map(s=>s.id)); return ST.audits.filter(a=>ids.has(a.sessionId)); }
+
+let curZone=1, curTier='gold', backTo='pg-tier';
+const NAV_MAP={'pg-home':'home','pg-zone':'home','pg-tier':'home','pg-audit':'home','pg-reports':'reports','pg-admin':'admin','pg-account':'account','pg-dash':'dash'};
+function navigate(id){
+  if((id==='pg-admin'||id==='pg-dash')&&!isAdmin()) id='pg-home';
+  const cur=document.querySelector('.page.active');
+  if(cur&&cur.id==='pg-audit'&&id!=='pg-audit'&&draftAnswered()&&!confirm('Leave without saving? The answers on this audit will be lost.')) return;
+  if(cur&&cur.id==='pg-audit'&&id!=='pg-audit'){ draft={targetId:null,results:{},startedAt:''}; clearDraft(); }
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  $(id).classList.add('active'); $('main').scrollTop=0;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const nb=$('nav-'+NAV_MAP[id]); if(nb) nb.classList.add('active');
+  renderPage(id);
+}
+function renderPage(id){ const f={'pg-home':renderHome,'pg-zone':renderZone,'pg-tier':renderTier,'pg-reports':renderSessions,'pg-admin':renderAdmin,'pg-account':renderAccount,'pg-dash':renderDash}[id]; if(f) f(); }
+function refreshView(){
+  if($('login').classList.contains('open')){ renderLogin(); return; }
+  updateShell();
+  const pg=document.querySelector('.page.active'); if(!pg||pg.id==='pg-audit') return;
+  const ae=document.activeElement, typing=ae&&pg.contains(ae)&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName);
+  if(pg.id==='pg-reports'){ if(typing) renderSessionList(); else renderSessions(); return; }
+  if(!typing) renderPage(pg.id);
+}
+function openModal(id){
+  $(id).classList.add('open');
+  if(id==='modal-sign') setTimeout(()=>{ resizePad('sig-modal'); resizePad('sig-client'); },60);
+}
+function closeModal(id){ $(id).classList.remove('open'); }
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open')); });
+
+function showLogin(){
+  $('login').classList.add('open'); $('hdr').classList.add('hide'); $('nav').classList.add('hide');
+  document.body.classList.remove('has-round'); $('login-card').dataset.mode=''; renderLogin();
+}
+function userOptions(users){ return users.map(u=>`<option value="${esc(u.id)}">${esc(u.name)} (${ROLE_LABEL[u.role]||esc(u.role)})</option>`).join(''); }
+function loginFoot(){ const ow=officialWarning(); $('login-foot').innerHTML=(ow?`<span style="color:#FFB4B4;font-weight:600">${esc(ow)}</span><br>`:'')+'Heathrow Audit '+APP_VERSION; }
+const changeTermBtn=()=>`<button class="linkbtn" onclick="switchTerminal()">Not ${TERM?esc(TERM.name):''}? Change terminal</button>`;
+function renderLogin(){
+  if(!TERM){ showTermPicker(); return; }
+  loginFoot();
+  const card=$('login-card'), users=activeUsers();
+  if(!users.length){
+    if(!CLOUD_LOADED){
+      card.dataset.mode='wait';
+      const err=SYNC_ERR||'', blocked=/PERMISSION|permission/.test(err);
+      const why=blocked?'Firebase is blocking the app. In Firebase Console open Authentication, then Sign-in method, and switch on Anonymous. Or put the database rules back to open for now.'
+        :err?err:(navigator.onLine?'':'This phone has no internet connection.');
+      card.innerHTML=`<h2>Connecting</h2><p class="muted">The first sign-in on a phone needs internet. Keep this screen open.</p>
+        <p style="margin-top:10px;font-size:14px"><b>Now:</b> ${esc(typeof CLOUD_STEP==='string'?CLOUD_STEP:'Starting')}</p>
+        ${why?`<p class="login-msg">${esc(why)}</p>`:''}
+        <button class="btn btn-full" style="margin-top:10px" onclick="location.reload()">Try again</button>${changeTermBtn()}`;
+      return;
+    }
+    if(!IS_T3){
+      if(card.dataset.mode==='notset') return;
+      card.dataset.mode='notset';
+      card.innerHTML=`<h2>${esc(TERM.name)} is not set up yet</h2><p class="muted" style="margin-top:6px">The admin sets it up from Terminal 3: Admin, then Terminals. Then the admin adds the staff for this terminal.</p>
+        <button class="btn btn-full" style="margin-top:12px" onclick="location.reload()">Check again</button>${changeTermBtn()}`;
+      return;
+    }
+    if(card.dataset.mode==='setup') return;
+    card.dataset.mode='setup';
+    card.innerHTML=`<h2>Set up the owner account</h2><p class="muted" style="margin-bottom:12px">This is the first sign-in. You become the Admin and can add managers and supervisors.</p>
+      <div class="field"><label class="label" for="su-name">Your full name</label><input class="input" id="su-name" value="Kulwinder Singh" autocomplete="name"></div>
+      <div class="field"><label class="label" for="su-pin">Choose a 6-digit PIN</label><input class="input" id="su-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+      <div class="field"><label class="label" for="su-pin2">PIN again</label><input class="input" id="su-pin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" onkeydown="if(event.key==='Enter')createOwner()"></div>
+      <button class="btn btn-act btn-lg btn-full" onclick="createOwner()">Create account and sign in</button><div class="login-msg" id="li-msg"></div>`;
+    return;
+  }
+  if(card.dataset.mode==='signin'&&$('li-user')){ const sel=$('li-user'), cur=sel.value; sel.innerHTML=userOptions(users); if(users.some(u=>u.id===cur)) sel.value=cur; return; }
+  card.dataset.
