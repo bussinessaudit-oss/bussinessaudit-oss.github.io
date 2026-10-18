@@ -338,6 +338,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
   <div class="hdr-id"><div class="hdr-title" id="hdr-title">T3 Audit</div><div class="hdr-sub" id="hdr-sub">Heathrow Terminal 3</div></div>
   <div class="hdr-right">
     <span class="sync off" id="sync" role="status"><i></i><span id="sync-txt">Offline</span></span>
+    <button class="me-chip" id="lock-btn" onclick="lockScreenNow()" aria-label="Lock the app" title="Lock the app" hidden>🔒</button>
     <button class="me-chip" id="me-chip" onclick="navigate('pg-account')" aria-label="Your account">–</button>
   </div>
 </header>
@@ -599,7 +600,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v39';
+const APP_VERSION='v42';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -792,7 +793,7 @@ let META={outbox:{},lastSync:{},lastTomb:{},legacyIds:null,legacyFlags:null,need
 const BLOBS=new Map();
 let CUR_UID=null;
 
-const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true};
+const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true,featWatermark:true,featShareFaults:true,featLockBtn:true,featHaptic:true,featIdleLock:true};
 function settings(){ return {...DEFAULT_SETTINGS,...(ST.config.find(c=>c.id==='settings')||{})}; }
 function saveSettings(patch){ put('config',{...settings(),...patch,id:'settings'}); }
 function flags(){ return ST.config.find(c=>c.id==='flags')||{id:'flags'}; }
@@ -1244,7 +1245,7 @@ function enterApp(){
   $('login').classList.remove('open'); $('hdr').classList.remove('hide'); $('nav').classList.remove('hide');
   claimLegacy(); updateShell(); navigate('pg-home'); restoreDraft().then(()=>checkDeepLink());
 }
-function signOut(){ CUR_UID=null; lsSet(LK('t3a_uid'),null); lsSet(LK('t3a_since'),null); showLogin(); }
+function signOut(){ if(draft.targetId){ saveDraft(true); draft={targetId:null,results:{},startedAt:''}; } document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); $('pg-home').classList.add('active'); CUR_UID=null; lsSet(LK('t3a_uid'),null); lsSet(LK('t3a_since'),null); showLogin(); }
 function confirmSignOut(){ if(openSession()&&!confirm('You have an audit running. It stays saved and you can finish it after signing in again. Sign out?')) return; signOut(); }
 function checkMe(){ if(CUR_UID&&CLOUD_LOADED&&!me()&&!$('login').classList.contains('open')){ toast('Your account has been switched off. Ask the admin.',true); signOut(); } }
 // Audits saved before v22 had one shared login; they belong to the owner
@@ -1279,7 +1280,7 @@ function savePin(){
 function updateShell(){
   const m=me(); if(!m) return;
   $('me-chip').textContent=initials(m.name); $('me-chip').title=`${m.name}, ${ROLE_LABEL[m.role]||m.role}`;
-  $('nav-admin').hidden=!isAdmin(); $('nav-dash').hidden=!isAdmin();
+  $('nav-admin').hidden=!isAdmin(); $('nav-dash').hidden=!isAdmin(); $('lock-btn').hidden=settings().featLockBtn===false; resetIdleTimer();
   updateRoundBar(); setSync();
 }
 function openSession(){ const m=me(); return m?ST.sessions.find(s=>(s.status==='open'||s.status==='signed')&&s.ownerId===m.id)||null:null; }
@@ -1696,7 +1697,7 @@ async function restoreDraft(){
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&draft.targetId) saveDraft(true); });
 const isFaultItem=it=>it&&it.status==='fail'&&(it.fault||false);
 function reasonTxt(it){ const r=(it.reasons||[]).join(', '); return [r,it.note||''].filter(Boolean).join('. ')||'Fail'; }
-function setStatus(i,status){ draft.results[i]={...(draft.results[i]||{}),status}; renderAuditItems(); saveDraft(); }
+function setStatus(i,status){ buzz(status==='fail'?[40,30,40]:15); draft.results[i]={...(draft.results[i]||{}),status}; renderAuditItems(); saveDraft(); }
 function setNote(i,v){ draft.results[i]={...(draft.results[i]||{}),note:v}; saveDraft(); }
 function removePhoto(i){ draft.results[i]={...(draft.results[i]||{}),photo:''}; renderAuditItems(); saveDraft(); }
 function setPhoto(i,input){
@@ -1711,7 +1712,7 @@ function setPhoto(i,input){
     img.onload=()=>{
       const max=1280, scale=Math.min(1,max/Math.max(img.width,img.height));
       const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*scale)); c.height=Math.max(1,Math.round(img.height*scale));
-      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height); { const tg=targetById(draft.targetId); stampPhoto(c,tg?tg.name:'Audit'); }
       draft.results[i]={...(draft.results[i]||{}),photo:c.toDataURL('image/jpeg',.78),noPhoto:false};
       renderAuditItems(); saveDraft(true); toast('Photo added');
     };
@@ -1903,7 +1904,7 @@ function renderSessionList(){
       <div class="main"><div class="t">${fmtDate(s.start)}, ${fmtTime(s.start)}${s.end?' to '+fmtTime(s.end):''}</div>
       <div class="s">${esc(kinds||'No audits yet')}. ${st.audits} ${st.audits===1?'audit':'audits'}, ${st.failures} ${st.failures===1?'failure':'failures'}.${who}</div>
       <div class="chips">${modeChip(s)}${isOpen?'<span class="chip chip-open">Not signed yet</span>':`<span class="chip chip-signed">Signed by ${esc(s.auditor)}</span>`}${s.status==='signed'?'<span class="chip chip-open">Report not sent</span>':s.reportSentAt?`<span class="chip chip-internal">Sent ${fmtDate(s.reportSentAt)}</span>`:''}${s._fix?'<span class="chip chip-off">Times corrected</span>':''}${sessionMode(s)==='client'&&s.clientName?`<span class="chip chip-client">Client: ${esc(s.clientName)}</span>`:''}</div></div></div>
-      <div class="sess-acts">${isOpen?(mine?`<button class="btn btn-act btn-sm" onclick="openSignModal()">Finish and sign</button>`:''):`<button class="btn btn-sm btn-brand" onclick="printSession('${s.id}')">Report</button><button class="btn btn-sm" onclick="emailMenu('${s.id}')">Email</button><button class="btn btn-sm" onclick="shareSession('${s.id}')">Share</button>${s.status==='signed'&&(mine||isAdmin())?`<button class="btn btn-act btn-sm" onclick="openSendSheet('${s.id}')">Send report</button>`:''}${isAdmin()?`<button class="btn btn-sm btn-quiet" onclick="openFixModal('${s.id}')">Correct</button>`:''}`}</div></div>`;
+      <div class="sess-acts">${isOpen?(mine?`<button class="btn btn-act btn-sm" onclick="openSignModal()">Finish and sign</button>`:''):`<button class="btn btn-sm btn-brand" onclick="printSession('${s.id}')">Report</button><button class="btn btn-sm" onclick="emailMenu('${s.id}')">Email</button><button class="btn btn-sm" onclick="shareSession('${s.id}')">Share</button>${settings().featShareFaults!==false&&(s.audits||[]).some(a=>(a.items||[]).some(it=>it.status==='fail'))?`<button class="btn btn-sm" onclick="sendFaultsSummary('${s.id}')">📲 Send faults</button>`:''}${s.status==='signed'&&(mine||isAdmin())?`<button class="btn btn-act btn-sm" onclick="openSendSheet('${s.id}')">Send report</button>`:''}${isAdmin()?`<button class="btn btn-sm btn-quiet" onclick="openFixModal('${s.id}')">Correct</button>`:''}`}</div></div>`;
   }).join('')+'</div>';
 }
 let REP_VIEW='';
@@ -2136,6 +2137,10 @@ function renderAdmin(){
     <div class="field"><label class="label" for="sla-bronze">Bronze (%)</label><input class="input" id="sla-bronze" type="number" min="0" max="100" inputmode="numeric" value="${esc(set.sla_bronze)}"></div></div>
     <button class="btn btn-brand" onclick="saveSla()">Save targets</button>
     <label class="switch-row" style="margin-top:10px"><input type="checkbox" ${set.faultsNoScore!==false?'checked':''} onchange="saveSettings({faultsNoScore:this.checked});logAct('Fault scoring changed',this.checked?'Faults do not lower the score':'Faults lower the score');toast('Saved')"> Fabric issues (broken, lights, dryers, locks, leaks, signs, tiles and so on) do not lower the cleaning score. Applies to new audits.</label></div>
+
+  <h2 class="sec">Extra features</h2>
+  <div class="panel"><p class="muted" style="margin-bottom:6px;font-size:14px">Switch each one on or off for everyone on ${esc(TERM.name)}.</p>
+    ${[['featWatermark','Stamp terminal, area, date and time on photos'],['featShareFaults','📲 Send faults button on reports (WhatsApp / Teams)'],['featLockBtn','🔒 Lock button at the top of the screen'],['featIdleLock','Lock the app after 30 minutes without use'],['featHaptic','Vibrate on Pass / Fail / N/A taps (Android)']].map(([k,l])=>`<label class="switch-row" style="margin-top:8px"><input type="checkbox" ${set[k]!==false?'checked':''} onchange="setFeature('${k}',this.checked,'${encArg(l)}')"> ${l}</label>`).join('')}</div>
 
   <h2 class="sec">Report emails</h2>
   <div class="panel"><p class="muted" style="margin-bottom:10px;font-size:14px">Signed rounds are emailed to the manager emails. Every signed round also has an Email button under Reports.</p>
@@ -2982,7 +2987,7 @@ function openResolve(id){
 }
 function setResolvePhoto(input){
   const f=input.files&&input.files[0]; if(!f||!f.type.startsWith('image/')) return;
-  const rd=new FileReader(); rd.onload=e=>{ const img=new Image(); img.onload=()=>{ const s=Math.min(1,1280/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); RS_PHOTO=c.toDataURL('image/jpeg',.78); $('rs-thumb').src=RS_PHOTO; $('rs-thumb').hidden=false; }; img.src=e.target.result; }; rd.readAsDataURL(f);
+  const rd=new FileReader(); rd.onload=e=>{ const img=new Image(); img.onload=()=>{ const s=Math.min(1,1280/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); { const a=ST.audits.find(x=>x.id===$('rs-aid').value); stampPhoto(c,'After: '+(a?a.name:'')); } RS_PHOTO=c.toDataURL('image/jpeg',.78); $('rs-thumb').src=RS_PHOTO; $('rs-thumb').hidden=false; }; img.src=e.target.result; }; rd.readAsDataURL(f);
 }
 async function saveResolution(){
   const id=$('rs-aid').value, a=ST.audits.find(x=>x.id===id); if(!a) return;
@@ -2994,6 +2999,35 @@ async function saveResolution(){
     fix:{type:'resolve',id,owner:owner.slice(0,80),note:note.slice(0,300),photoId}});
   linkAudits(); persistSoon(); closeModal('modal-resolve'); toast('Marked as resolved'); renderSessions();
 }
+
+// ════════════ v42: switchable extras (Admin → Extra features) ════════════
+function featOn(k){ return settings()[k]!==false; }
+function setFeature(k,on,enc){ saveSettings({[k]:on}); logAct('Feature '+(on?'switched on':'switched off'),decodeURIComponent(enc)); toast(on?'Switched on':'Switched off'); updateShell(); }
+// 1. Photo stamp: terminal | area | date and time, on a dark strip at the bottom
+function stampPhoto(c,label){
+  if(!featOn('featWatermark')) return;
+  const g=c.getContext('2d'), txt=`${TID} | ${label||'Audit'} | ${new Date().toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+  const barH=Math.max(26,Math.round(c.height*0.05)); let fs=Math.max(12,Math.round(barH*0.5));
+  g.font=`bold ${fs}px Arial, sans-serif`; while(fs>9&&g.measureText(txt).width>c.width-16){ fs--; g.font=`bold ${fs}px Arial, sans-serif`; }
+  g.fillStyle='rgba(24,12,42,0.8)'; g.fillRect(0,c.height-barH,c.width,barH);
+  g.fillStyle='#FFD100'; g.textBaseline='middle'; g.fillText(txt,8,c.height-barH/2);
+}
+// 2. Send faults list to WhatsApp / Teams (phone share sheet, or copied)
+async function sendFaultsSummary(id){
+  const s=ST.sessions.find(x=>x.id===id); if(!s) return; const clean=[], fab=[];
+  (s.audits||[]).forEach(a=>(a.items||[]).forEach(it=>{ if(it.status!=='fail') return; const line=`• ${a.name} (Zone ${a.zone}): ${it.name} - ${reasonTxt(it)}`; (isFabricIssue(it)?fab:clean).push(line); }));
+  const msg=[`${TID} AUDIT ACTION LIST, ${fmtDate(s.start)}`,`Auditor: ${s.auditor||s.ownerName||'-'}`,clean.length?`\n🧹 Cleaning issues (${clean.length}):\n`+clean.join('\n'):'',fab.length?`\n🔧 Fabric issues (${fab.length}):\n`+fab.join('\n'):''].filter(Boolean).join('\n');
+  logAct('Fault list shared',fmtDate(s.start));
+  if(navigator.share){ try{ await navigator.share({title:`${TID} action list`,text:msg}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
+  try{ await navigator.clipboard.writeText(msg); toast('Fault list copied. Paste it into Teams or WhatsApp.'); }catch(e){ toast('Could not copy the list',true); }
+}
+// 3 + 4. Lock now, and lock after 30 minutes without use
+function lockScreenNow(){ if(!CUR_UID||$('login').classList.contains('open')) return; if(draft.targetId) saveDraft(true); signOut(); toast('Locked. Enter your PIN to carry on.'); }
+let IDLE_T=null; const IDLE_MS=30*60000;
+function resetIdleTimer(){ clearTimeout(IDLE_T); if(CUR_UID&&featOn('featIdleLock')&&!$('login').classList.contains('open')) IDLE_T=setTimeout(lockScreenNow,IDLE_MS); }
+['touchstart','click','keydown','scroll'].forEach(ev=>document.addEventListener(ev,resetIdleTimer,{passive:true,capture:true}));
+// 5. Vibrate on taps
+function buzz(p){ try{ if(featOn('featHaptic')&&navigator.vibrate) navigator.vibrate(p); }catch(e){} }
 
 </script>
 </body>
