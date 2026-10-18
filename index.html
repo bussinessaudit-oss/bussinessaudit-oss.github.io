@@ -187,6 +187,13 @@ button:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .rsn.fault button.on{background:var(--warn);border-color:var(--warn)}
 .fault-tag{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:var(--warn)}
 .fail-box{margin-top:10px;padding:12px;background:var(--fail-soft);border-radius:10px}
+.qsearch-wrap{margin-top:14px}.qsearch-bar{display:flex;gap:8px;align-items:center}.qsearch-bar .input{flex:1}.qsearch-res{margin-top:8px;max-height:340px;overflow-y:auto}
+.btn-pass{background:var(--pass);border-color:var(--pass);color:#fff}
+.lbl-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mic-btn{border:1px solid var(--brand-line,#D9CDEB);background:#fff;color:var(--brand);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600;cursor:pointer}
+.mic-btn.rec{background:var(--fail);border-color:var(--fail);color:#fff}
+.annot-cv{width:100%;max-height:58vh;object-fit:contain;background:#111;border-radius:10px;touch-action:none;display:block}
+#annot-cols .on{outline:2px solid var(--ink)}
 .photo-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
 .thumb{width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:8px}
 .savebar{position:sticky;bottom:0;padding:14px 0 2px;background:linear-gradient(rgba(244,242,248,0),var(--paper) 35%)}
@@ -343,6 +350,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
     <div class="pg-sub" id="today-date"></div>
     <div id="round-card"></div>
     <div class="today" id="today-strip"></div>
+    <div class="qsearch-wrap"><div class="qsearch-bar"><input class="input" id="home-q" type="search" placeholder="🔍 Find an area: Gate 10, Boots, toilet…" oninput="renderQuickSearch(this.value)" autocomplete="off"><button class="btn" onclick="openQrScanner()" aria-label="Scan QR code">📷 QR</button></div><div id="home-q-res" class="qsearch-res" hidden></div></div>
     <h2 class="sec">Zones</h2>
     <div class="zones" id="zone-list"></div>
   </section>
@@ -370,7 +378,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
       <h1 id="audit-title">Audit</h1>
       <div class="pg-sub" id="audit-sub"></div>
       <div class="bar"><i id="a-prog" style="width:0"></i></div>
-      <div class="pg-sub" id="a-prog-txt"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px"><div class="pg-sub" id="a-prog-txt" style="margin:0"></div><button type="button" class="btn btn-sm btn-pass" onclick="passRemaining()">✓ Pass remaining</button></div>
     </div>
     <div class="panel" id="audit-items"></div>
     <div class="panel">
@@ -526,6 +534,33 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 </div>
 
 <!-- ═══ Admin: correct a round ═══ -->
+<div class="modal" id="modal-qr">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="qr-h">
+    <div class="sheet-h"><h3 id="qr-h">Scan area QR code</h3><button class="x" onclick="closeQrScanner()" aria-label="Close">×</button></div>
+    <video id="qr-video" playsinline muted style="width:100%;max-height:55vh;background:#111;border-radius:10px"></video>
+    <p class="muted" id="qr-msg" style="margin-top:8px"></p>
+  </div>
+</div>
+<div class="modal" id="modal-annot">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="an-h">
+    <div class="sheet-h"><h3 id="an-h">Mark up the photo</h3><button class="x" onclick="closeModal('modal-annot')" aria-label="Close">×</button></div>
+    <p class="muted" style="font-size:13px;margin-bottom:6px">Draw with your finger to circle the problem.</p>
+    <canvas id="annot-canvas" class="annot-cv"></canvas>
+    <div id="annot-cols" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn btn-sm on" style="color:#E53935" onclick="setAnnotColor('#E53935',this)">● Red</button><button class="btn btn-sm" style="color:#B8860B" onclick="setAnnotColor('#FFD100',this)">● Yellow</button><button class="btn btn-sm" onclick="undoAnnotation()">Undo</button><button class="btn btn-sm" onclick="resetAnnotation()">Clear</button></div>
+    <button class="btn btn-brand btn-full" style="margin-top:10px" onclick="saveAnnotation()">Save marked photo</button>
+  </div>
+</div>
+<div class="modal" id="modal-resolve">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rs-h">
+    <div class="sheet-h"><h3 id="rs-h">Put right and close</h3><button class="x" onclick="closeModal('modal-resolve')" aria-label="Close">×</button></div>
+    <input type="hidden" id="rs-aid">
+    <div class="note" id="rs-info" style="font-size:14px;margin-bottom:8px"></div>
+    <div class="field"><label class="label" for="rs-owner">Put right by</label><input class="input" id="rs-owner" placeholder="Staff or supervisor name" autocomplete="off"></div>
+    <div class="field"><label class="label" for="rs-note">What was done</label><textarea class="input" id="rs-note" placeholder="e.g. Deep cleaned, soap refilled, reported to maintenance"></textarea></div>
+    <div class="field"><span class="label">After photo (optional)</span><label class="btn btn-sm"><input type="file" accept="image/*" capture="environment" hidden onchange="setResolvePhoto(this)">📷 Take after photo</label><img id="rs-thumb" class="thumb" hidden alt="After photo"></div>
+    <button class="btn btn-pass btn-lg btn-full" onclick="saveResolution()">Mark as resolved ✓</button>
+  </div>
+</div>
 <div class="modal" id="modal-fix">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fx-h">
     <div class="sheet-h"><h3 id="fx-h">Correct this round</h3><button class="x" onclick="closeModal('modal-fix')" aria-label="Close">×</button></div>
@@ -564,7 +599,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v38';
+const APP_VERSION='v39';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -777,8 +812,9 @@ const localDay=iso=>{ const d=new Date(iso); return new Date(d.getTime()-d.getTi
 function applyFixes(){
   const fx=(ST.logs||[]).filter(l=>l&&l.fix&&l.fix.id).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
   if(!fx.length) return;
-  const delS=new Set(), delA=new Set(), time={};
-  fx.forEach(l=>{ const f=l.fix; if(f.type==='del-session') delS.add(f.id); else if(f.type==='del-audit') delA.add(f.id); else if(f.type==='time') time[f.id]={...f,lid:l.id}; });
+  const delS=new Set(), delA=new Set(), time={}, res={};
+  fx.forEach(l=>{ const f=l.fix; if(f.type==='del-session') delS.add(f.id); else if(f.type==='del-audit') delA.add(f.id); else if(f.type==='time') time[f.id]={...f,lid:l.id}; else if(f.type==='resolve') res[f.id]={...f,at:l.at,byName:l.byName}; });
+  Object.values(res).forEach(f=>{ const a=ST.audits.find(x=>x.id===f.id); if(!a) return; a.followUpStatus='resolved'; a.resolvedAt=f.at; a.followUpOwner=f.owner||''; a.resolveNote=f.note||''; a.resolvePhotoId=f.photoId||''; a.resolvedByName=f.byName||''; });
   if(delS.size||delA.size){ ST.sessions=ST.sessions.filter(s=>!delS.has(s.id)); ST.audits=ST.audits.filter(a=>!delA.has(a.id)&&!delS.has(a.sessionId)); }
   Object.values(time).forEach(f=>{
     const s=ST.sessions.find(x=>x.id===f.id); if(!s||s._fix===f.lid) return;
@@ -1206,7 +1242,7 @@ setInterval(()=>{ if(CUR_UID&&sessionExpired()&&!$('login').classList.contains('
 function logAct(action,detail){ const m=me(); put('logs',{id:newId('lg'),at:new Date().toISOString(),by:m?m.id:'',byName:m?m.name:'',action,detail:String(detail||'').slice(0,200)}); }
 function enterApp(){
   $('login').classList.remove('open'); $('hdr').classList.remove('hide'); $('nav').classList.remove('hide');
-  claimLegacy(); updateShell(); navigate('pg-home'); restoreDraft();
+  claimLegacy(); updateShell(); navigate('pg-home'); restoreDraft().then(()=>checkDeepLink());
 }
 function signOut(){ CUR_UID=null; lsSet(LK('t3a_uid'),null); lsSet(LK('t3a_since'),null); showLogin(); }
 function confirmSignOut(){ if(openSession()&&!confirm('You have an audit running. It stays saved and you can finish it after signing in again. Sign out?')) return; signOut(); }
@@ -1364,7 +1400,7 @@ function renderTier(){
   const toilets=allToilets().filter(x=>x.zone===curZone&&x.tier===curTier);
   const allIds=[...areas.map(a=>a.id),...toilets.map(x=>'t_'+x.id)];
   $('tier-head').innerHTML=`<div class="loc-head"><span class="plate" aria-hidden="true">${z.id}</span><div><h1>${esc(t.label)}</h1><div class="pg-sub">${esc(z.name)}${allIds.length?`, ${doneToday(allIds)} of ${allIds.length} audited today`:''}</div></div></div>`;
-  $('tier-tools').innerHTML=admin?`<div style="margin:6px 0 2px"><button class="btn btn-sm" onclick="openAreaModal()">Add area</button></div>`:'';
+  $('tier-tools').innerHTML=admin?`<div style="margin:6px 0 2px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="openAreaModal()">Add area</button>${allIds.length?'<button class="btn btn-sm" onclick="printQrLabels()">🏷️ QR labels</button>':''}</div>`:'';
   const sub=a=>`<span>${a.items.length} checks</span>${lastTxtOf(a.id)}`;
   let html='', shown=0;
   // 1. Toilets
@@ -1631,7 +1667,7 @@ function renderAuditItems(){
         <label class="label" for="fn-${i}" style="margin-top:12px">More detail (optional)</label>
         <textarea class="input" id="fn-${i}" oninput="setNote(${i},this.value)" placeholder="Describe the problem">${esc(r.note||'')}</textarea>
         <div class="label" style="margin-top:12px">Photo</div>
-        <div class="photo-row"><label class="btn btn-sm${!r.photo&&!r.noPhoto?' btn-brand':''}"><input type="file" id="ph-${i}" accept="image/*" capture="environment" hidden onchange="setPhoto(${i},this)">${r.photo?'Retake photo':'📷 Take photo'}</label>${r.photo?`<button type="button" class="btn btn-sm btn-danger" onclick="removePhoto(${i})">Remove photo</button>`:r.noPhoto?'<span style="font-weight:600;color:var(--muted);align-self:center">No photo (not applicable)</span>':`<button type="button" class="btn btn-sm" onclick="setNoPhoto(${i})">No photo</button>`}</div>
+        <div class="photo-row"><label class="btn btn-sm${!r.photo&&!r.noPhoto?' btn-brand':''}"><input type="file" id="ph-${i}" accept="image/*" capture="environment" hidden onchange="setPhoto(${i},this)">${r.photo?'Retake photo':'📷 Take photo'}</label>${r.photo?`<button type="button" class="btn btn-sm" onclick="openAnnot(${i})">✏️ Mark up${r.marked?' again':''}</button><button type="button" class="btn btn-sm btn-danger" onclick="removePhoto(${i})">Remove photo</button>`:r.noPhoto?'<span style="font-weight:600;color:var(--muted);align-self:center">No photo (not applicable)</span>':`<button type="button" class="btn btn-sm" onclick="setNoPhoto(${i})">No photo</button>`}</div>
         ${r.photo?`<img class="thumb" src="${r.photo}" alt="Photo for item ${i+1}">`:''}
       </div>`:''}</div>`;
   }).join('');
@@ -1851,8 +1887,9 @@ function trendBars(audits){
 function modeChip(s){ return sessionMode(s)==='client'?'<span class="chip chip-client">Client audit</span>':'<span class="chip chip-internal">Internal audit</span>'; }
 function renderRepTabs(){
   const t=REP_FILTER.type;
-  $('rep-tabs').innerHTML=[['','All'],['internal','Internal'],['client','Client']].map(([v,l])=>`<button role="tab" aria-selected="${REP_VIEW!=='fabric'&&t===v}" class="${REP_VIEW!=='fabric'&&t===v?'on':''} ${v==='client'?'client':''}" onclick="REP_VIEW='';REP_FILTER.type='${v}';renderSessions()">${l}</button>`).join('')
-    +`<button role="tab" aria-selected="${REP_VIEW==='fabric'}" class="${REP_VIEW==='fabric'?'on':''}" onclick="REP_VIEW='fabric';renderSessions()">Fabric issues</button>`;
+  $('rep-tabs').innerHTML=[['','All'],['internal','Internal'],['client','Client']].map(([v,l])=>`<button role="tab" aria-selected="${!REP_VIEW&&t===v}" class="${!REP_VIEW&&t===v?'on':''} ${v==='client'?'client':''}" onclick="REP_VIEW='';REP_FILTER.type='${v}';renderSessions()">${l}</button>`).join('')
+    +`<button role="tab" aria-selected="${REP_VIEW==='fabric'}" class="${REP_VIEW==='fabric'?'on':''}" onclick="REP_VIEW='fabric';renderSessions()">Fabric issues</button>`
+    +`<button role="tab" aria-selected="${REP_VIEW==='actions'}" class="${REP_VIEW==='actions'?'on':''}" onclick="REP_VIEW='actions';renderSessions()">Actions</button>`;
 }
 function renderSessionList(){
   const c=$('sessions-cards'); if(!c) return;
@@ -1909,6 +1946,7 @@ async function printFabricReport(){
 function renderSessions(){
   renderRepTabs();
   if(REP_VIEW==='fabric'){ $('rep-sub').textContent='Fabric issues found during audits'; renderFabric(); return; }
+  if(REP_VIEW==='actions'){ renderActions(); return; }
   $('rep-sub').textContent=isManager()?'Audits from every supervisor':'Your audits';
   const c=$('sessions-list');
   if(!visibleSessions().length){ c.innerHTML='<div class="panel"><p class="muted">No audits yet. Start an audit from the Zones tab.</p></div>'; return; }
@@ -2831,6 +2869,130 @@ async function testEmail(){
   try{ const r=await fetch(set.mailUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:set.emailKey,to:(me()&&to[0])||to.join(','),subject:`${TID} Audit: test email`,html:'<p style="font-family:Arial">Automatic email from the audit app is working.</p>',photos:[]})});
     const j=await r.json().catch(()=>({ok:r.ok})); toast(!j.ok?'Not sent: '+(j.error||'unknown'):j.v===2?'Test email sent to '+(to[0]||'')+'. Script is up to date (PDFs will be attached).':'Test email sent, but the Google script is OLD: PDFs will not be attached. Copy the script again and deploy a New version.',!j.ok||j.v!==2); }
   catch(e){ toast('Not sent. Check the address and that access is set to Anyone.',true); }
+}
+
+// ════════════ v41 ADD-ONS: quick search, QR, pass remaining, photo mark-up, rectify ════════════
+// 1. Quick search on Home
+function allTargetIds(){ return [...ST.areas.map(a=>a.id),...allToilets().map(x=>'t_'+x.id)]; }
+function renderQuickSearch(q){
+  const box=$('home-q-res'); if(!box) return; q=String(q||'').trim().toLowerCase();
+  if(q.length<2){ box.hidden=true; box.innerHTML=''; return; }
+  const words=q.split(/\s+/), hits=[];
+  allTargetIds().forEach(id=>{ const tg=targetById(id); if(!tg) return;
+    const hay=[tg.name,tg.area,tg.loc,tg.part,tg.types,id.replace(/^t_/,''),'zone '+tg.zone,tierOf(tg.tier).name].join(' ').toLowerCase();
+    if(words.every(w=>hay.includes(w))) hits.push(tg); });
+  box.hidden=false;
+  box.innerHTML=hits.length?`<div class="list">${hits.slice(0,15).map(tg=>`<button class="row" style="width:100%;text-align:left;border:0;background:none;cursor:pointer" onclick="quickOpen('${encArg(tg.id)}')"><span class="ico" aria-hidden="true">${tg.kind==='toilet'?'🚻':'📋'}</span><span class="main"><span class="t" style="display:block">${esc(tg.name)}</span><span class="s" style="display:block">Zone ${tg.zone}, ${esc(tierOf(tg.tier).name)}${tg.area?', '+esc(tg.area):''}. ${tg.items.length} checks.</span></span>${IC.chev}</button>`).join('')}</div>${hits.length>15?`<p class="muted" style="font-size:13px;margin-top:6px">${hits.length-15} more. Type more to narrow it down.</p>`:''}`
+    :'<p class="muted" style="font-size:14px">Nothing found. Try another word.</p>';
+}
+function quickOpen(enc){ const id=decodeURIComponent(enc), tg=targetById(id); if(!tg) return; const q=$('home-q'); if(q) q.value=''; renderQuickSearch('');
+  curZone=tg.zone; curTier=tg.tier; openAudit(id); }
+
+// 2. QR codes: each area gets a link. Scanning it (phone camera or in-app scanner) opens that audit.
+const QR_LIB='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+function areaLink(id){ return location.origin+location.pathname+'#t='+encodeURIComponent(TID)+'&a='+encodeURIComponent(id); }
+function parseAreaLink(txt){ const m=String(txt||'').match(/#(.*)$/); const h=new URLSearchParams(m?m[1]:String(txt||'')); return {t:h.get('t')||'',a:h.get('a')||''}; }
+function openFromLink(txt){
+  const {t,a}=parseAreaLink(txt); if(!a) return false;
+  if(t&&t!==TID){ toast(`This QR code is for ${t}. You are signed in to ${TID}.`,true); return true; }
+  const tg=targetById(a); if(!tg){ toast('That area no longer exists',true); return true; }
+  curZone=tg.zone; curTier=tg.tier; openAudit(a); return true;
+}
+function checkDeepLink(){ if(!/[#&]a=/.test(location.hash)) return; const h=location.hash; history.replaceState(null,'',location.pathname+location.search); if(draft.targetId) return; setTimeout(()=>openFromLink(h),300); }
+window.addEventListener('hashchange',()=>{ if(CUR_UID&&me()&&/[#&]a=/.test(location.hash)) checkDeepLink(); });
+let QR_STREAM=null, QR_TIMER=null;
+async function openQrScanner(){
+  if(!('BarcodeDetector' in window)){ toast('Use your phone camera app to scan the QR code. It opens the audit straight away.'); return; }
+  openModal('modal-qr'); const v=$('qr-video'); $('qr-msg').textContent='Point the camera at the QR code';
+  try{
+    QR_STREAM=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false}); v.srcObject=QR_STREAM; await v.play();
+    const det=new BarcodeDetector({formats:['qr_code']});
+    const tick=async()=>{ if(!QR_STREAM) return; try{ const r=await det.detect(v); if(r&&r.length){ const txt=r[0].rawValue; closeQrScanner(); if(!openFromLink(txt)) toast('That QR code is not an audit area',true); return; } }catch(e){} QR_TIMER=setTimeout(tick,350); };
+    tick();
+  }catch(e){ $('qr-msg').textContent='The camera could not start. Allow camera access for this site, or use your phone camera app.'; }
+}
+function closeQrScanner(){ clearTimeout(QR_TIMER); if(QR_STREAM){ QR_STREAM.getTracks().forEach(t=>t.stop()); QR_STREAM=null; } const v=$('qr-video'); if(v) v.srcObject=null; closeModal('modal-qr'); }
+async function printQrLabels(){
+  if(!isAdmin()) return;
+  const ids=zoneTargets(curZone,curTier); if(!ids.length){ toast('No areas here yet',true); return; }
+  const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups for this site to print labels',true); return; }
+  w.document.write('<p style="font-family:Arial">Making QR labels…</p>');
+  try{ if(!window.QRCode) await loadScript(QR_LIB); }catch(e){ w.document.body.innerHTML='<p style="font-family:Arial">Could not load the QR maker. Check the internet and try again.</p>'; return; }
+  const tmp=document.createElement('div'); tmp.style.cssText='position:fixed;left:-9999px;top:0'; document.body.appendChild(tmp);
+  const cards=ids.map(id=>{ const tg=targetById(id); if(!tg) return ''; tmp.innerHTML=''; new QRCode(tmp,{text:areaLink(id),width:220,height:220,correctLevel:QRCode.CorrectLevel.M});
+    const c=tmp.querySelector('canvas'), src=c?c.toDataURL('image/png'):((tmp.querySelector('img')||{}).src||'');
+    return `<div class="lb"><img src="${src}" alt=""><div class="n">${esc(tg.name)}</div><div class="s">${esc(TERM.name)}, Zone ${tg.zone}, ${esc(tierOf(tg.tier).name)}</div><div class="s">Scan to start the audit</div></div>`; }).join('');
+  tmp.remove();
+  w.document.open(); w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR labels</title><style>body{font-family:Arial,sans-serif;margin:12mm}.g{display:grid;grid-template-columns:repeat(3,1fr);gap:8mm}.lb{border:1px solid #999;border-radius:6px;padding:4mm;text-align:center;break-inside:avoid}.lb img{width:42mm;height:42mm}.n{font-weight:700;font-size:13px;margin-top:2mm}.s{font-size:11px;color:#444}@media print{button{display:none}}</style></head><body><button onclick="print()" style="font-size:16px;padding:8px 16px;margin-bottom:10px">Print</button><div class="g">${cards}</div></body></html>`); w.document.close();
+}
+
+// 3. Pass remaining
+function passRemaining(){
+  const tg=targetById(draft.targetId); if(!tg) return; let n=0;
+  tg.items.forEach((_,i)=>{ const r=draft.results[i]||{}; if(!r.status){ draft.results[i]={...r,status:'pass'}; n++; } });
+  if(!n){ toast('Every item already has an answer'); return; }
+  renderAuditItems(); saveDraft(true); toast(`${n} ${n===1?'item':'items'} marked Pass`);
+}
+
+// 5. Mark up a photo (draw on it to show the problem)
+let ANNOT={i:null,base:null,lines:[],cur:null,color:'#E53935'};
+function openAnnot(i){
+  const r=draft.results[i]; if(!r||!r.photo) return; ANNOT={i,base:new Image(),lines:[],cur:null,color:ANNOT.color||'#E53935'};
+  ANNOT.base.onload=()=>{ const c=$('annot-canvas'); c.width=ANNOT.base.width; c.height=ANNOT.base.height; drawAnnot(); openModal('modal-annot'); };
+  ANNOT.base.src=r.photo;
+}
+function drawAnnot(){ const c=$('annot-canvas'), g=c.getContext('2d'); g.drawImage(ANNOT.base,0,0);
+  const lw=Math.max(4,Math.round(c.width/180)); g.lineCap='round'; g.lineJoin='round';
+  [...ANNOT.lines,...(ANNOT.cur?[ANNOT.cur]:[])].forEach(l=>{ g.strokeStyle=l.c; g.lineWidth=lw; g.beginPath(); l.p.forEach((p,k)=>k?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)); if(l.p.length===1) g.lineTo(l.p[0].x+.1,l.p[0].y); g.stroke(); }); }
+function setAnnotColor(c,btn){ ANNOT.color=c; document.querySelectorAll('#annot-cols button').forEach(b=>b.classList.toggle('on',b===btn)); }
+function undoAnnotation(){ ANNOT.lines.pop(); drawAnnot(); }
+function resetAnnotation(){ ANNOT.lines=[]; drawAnnot(); }
+function saveAnnotation(){ const i=ANNOT.i; if(i===null||!draft.results[i]) return; if(ANNOT.lines.length){ draft.results[i]={...draft.results[i],photo:$('annot-canvas').toDataURL('image/jpeg',.8),marked:true}; renderAuditItems(); saveDraft(true); toast('Photo marked up'); } closeModal('modal-annot'); }
+(function(){ const c=$('annot-canvas'); if(!c) return;
+  const pos=e=>{ const r=c.getBoundingClientRect(), p=e.touches?e.touches[0]:e; return {x:(p.clientX-r.left)*c.width/r.width,y:(p.clientY-r.top)*c.height/r.height}; };
+  const start=e=>{ e.preventDefault(); ANNOT.cur={c:ANNOT.color,p:[pos(e)]}; drawAnnot(); };
+  const move=e=>{ if(!ANNOT.cur) return; e.preventDefault(); ANNOT.cur.p.push(pos(e)); drawAnnot(); };
+  const end=()=>{ if(ANNOT.cur){ ANNOT.lines.push(ANNOT.cur); ANNOT.cur=null; drawAnnot(); } };
+  c.addEventListener('mousedown',start); c.addEventListener('mousemove',move); window.addEventListener('mouseup',end);
+  c.addEventListener('touchstart',start,{passive:false}); c.addEventListener('touchmove',move,{passive:false}); c.addEventListener('touchend',end);
+})();
+
+// 6. Rectify and close actions (saved as a log entry, so the original audit is never changed)
+function openActions(){ return visibleAudits().filter(a=>(a.items||[]).some(it=>it.status==='fail')); }
+function actionState(a){ return a.followUpStatus==='resolved'?'resolved':'open'; }
+let ACT_VIEW='open', RS_PHOTO='';
+function renderActions(){
+  const all=openActions().sort((x,y)=>String(y.endedAt).localeCompare(String(x.endedAt)));
+  const open=all.filter(a=>actionState(a)==='open'), done=all.filter(a=>actionState(a)==='resolved');
+  const list=ACT_VIEW==='open'?open:done;
+  $('rep-sub').textContent='Failed audits that need putting right';
+  $('sessions-list').innerHTML=`<div class="panel"><div class="kpis"><div class="kpi"><b style="color:${open.length?'var(--fail)':'var(--pass)'}">${open.length}</b><span>Open actions</span></div><div class="kpi"><b style="color:var(--pass)">${done.length}</b><span>Resolved</span></div></div>
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-sm ${ACT_VIEW==='open'?'btn-brand':''}" onclick="ACT_VIEW='open';renderSessions()">Open</button><button class="btn btn-sm ${ACT_VIEW==='resolved'?'btn-brand':''}" onclick="ACT_VIEW='resolved';renderSessions()">Resolved</button></div></div>
+    ${list.length?`<div class="list">${list.map(a=>{ const fails=(a.items||[]).filter(it=>it.status==='fail');
+      return `<div class="row"><div class="ico" aria-hidden="true">${a.followUpStatus==='resolved'?'✅':'⚠️'}</div><div class="main"><div class="t">${esc(a.name)}</div><div class="s"><span>${fails.map(it=>esc(it.name)+(it.reasons&&it.reasons.length?': <b>'+esc(it.reasons.join(', '))+'</b>':'')).join('<br>')}</span><span>${fmtDT(a.endedAt)}, Zone ${a.zone}, ${esc(a.auditorName||'')}</span>${a.followUpStatus==='resolved'?`<span style="color:var(--pass);font-weight:600">Resolved ${fmtDT(a.resolvedAt)} by ${esc(a.followUpOwner||a.resolvedByName||'')}${a.resolveNote?': '+esc(a.resolveNote):''}</span>`:''}</div></div>
+      <div class="acts">${a.followUpStatus==='resolved'?(a.resolvePhotoId?`<button class="btn btn-sm" onclick="viewPhoto('${a.resolvePhotoId}')">After photo</button>`:''):`<button class="btn btn-sm btn-pass" onclick="openResolve('${a.id}')">Resolve</button>`}</div></div>`; }).join('')}</div>`
+      :`<div class="panel"><p class="muted">${ACT_VIEW==='open'?'No open actions. Everything that failed has been put right.':'Nothing resolved yet.'}</p></div>`}`;
+}
+function openResolve(id){
+  const a=ST.audits.find(x=>x.id===id); if(!a) return; RS_PHOTO='';
+  $('rs-aid').value=id; $('rs-owner').value=me()?me().name:''; $('rs-note').value=''; $('rs-thumb').hidden=true; $('rs-thumb').removeAttribute('src');
+  const fails=(a.items||[]).filter(it=>it.status==='fail');
+  $('rs-info').innerHTML=`<b>${esc(a.name)}</b><br>${fails.map(it=>esc(it.name)+(it.reasons&&it.reasons.length?' ('+esc(it.reasons.join(', '))+')':'')).join('<br>')}`;
+  openModal('modal-resolve');
+}
+function setResolvePhoto(input){
+  const f=input.files&&input.files[0]; if(!f||!f.type.startsWith('image/')) return;
+  const rd=new FileReader(); rd.onload=e=>{ const img=new Image(); img.onload=()=>{ const s=Math.min(1,1280/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); RS_PHOTO=c.toDataURL('image/jpeg',.78); $('rs-thumb').src=RS_PHOTO; $('rs-thumb').hidden=false; }; img.src=e.target.result; }; rd.readAsDataURL(f);
+}
+async function saveResolution(){
+  const id=$('rs-aid').value, a=ST.audits.find(x=>x.id===id); if(!a) return;
+  const owner=$('rs-owner').value.replace(/\s+/g,' ').trim(), note=$('rs-note').value.replace(/\s+/g,' ').trim();
+  if(owner.length<2){ toast('Write who put it right',true); $('rs-owner').focus(); return; }
+  if(note.length<3){ toast('Write what was done',true); $('rs-note').focus(); return; }
+  const photoId=RS_PHOTO?await putBlob(RS_PHOTO):'', m=me();
+  put('logs',{id:newId('lg'),at:new Date().toISOString(),by:m?m.id:'',byName:m?m.name:'',action:'Action resolved',detail:(a.name+': '+note).slice(0,200),
+    fix:{type:'resolve',id,owner:owner.slice(0,80),note:note.slice(0,300),photoId}});
+  linkAudits(); persistSoon(); closeModal('modal-resolve'); toast('Marked as resolved'); renderSessions();
 }
 
 </script>
