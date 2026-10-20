@@ -351,7 +351,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
     <div class="pg-sub" id="today-date"></div>
     <div id="round-card"></div>
     <div class="today" id="today-strip"></div>
-    <div class="qsearch-wrap"><div class="qsearch-bar"><input class="input" id="home-q" type="search" placeholder="🔍 Find an area: Gate 10, Boots, toilet…" oninput="renderQuickSearch(this.value)" autocomplete="off"><button class="btn" onclick="openQrScanner()" aria-label="Scan QR code">📷 QR</button></div><div id="home-q-res" class="qsearch-res" hidden></div></div>
+    <div class="qsearch-wrap"><div class="qsearch-bar"><input class="input" id="home-q" type="search" placeholder="🔍 Find an area: Gate 10, Boots, toilet…" oninput="renderQuickSearch(this.value)" autocomplete="off"><button class="btn" id="home-qr-btn" hidden onclick="openQrScanner()" aria-label="Scan QR code">📷 QR</button></div><div id="home-q-res" class="qsearch-res" hidden></div></div>
     <h2 class="sec">Zones</h2>
     <div class="zones" id="zone-list"></div>
   </section>
@@ -553,13 +553,21 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 </div>
 <div class="modal" id="modal-resolve">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rs-h">
-    <div class="sheet-h"><h3 id="rs-h">Put right and close</h3><button class="x" onclick="closeModal('modal-resolve')" aria-label="Close">×</button></div>
+    <div class="sheet-h"><h3 id="rs-h">Before &amp; After</h3><button class="x" onclick="closeModal('modal-resolve')" aria-label="Close">×</button></div>
     <input type="hidden" id="rs-aid">
     <div class="note" id="rs-info" style="font-size:14px;margin-bottom:8px"></div>
-    <div class="field"><label class="label" for="rs-owner">Put right by</label><input class="input" id="rs-owner" placeholder="Staff or supervisor name" autocomplete="off"></div>
+    <div class="field"><label class="label" for="rs-owner">Resolved by operative</label><input class="input" id="rs-owner" placeholder="Operative name" autocomplete="off"></div>
     <div class="field"><label class="label" for="rs-note">What was done</label><textarea class="input" id="rs-note" placeholder="e.g. Deep cleaned, soap refilled, reported to maintenance"></textarea></div>
-    <div class="field"><span class="label">After photo (optional)</span><label class="btn btn-sm"><input type="file" accept="image/*" capture="environment" hidden onchange="setResolvePhoto(this)">📷 Take after photo</label><img id="rs-thumb" class="thumb" hidden alt="After photo"></div>
+    <div class="field"><span class="label">AFTER photo (optional)</span><label class="btn btn-sm"><input type="file" accept="image/*" capture="environment" hidden onchange="setResolvePhoto(this)">📷 Take after photo</label><img id="rs-thumb" class="thumb" hidden alt="After photo"></div>
     <button class="btn btn-pass btn-lg btn-full" onclick="saveResolution()">Mark as resolved ✓</button>
+  </div>
+</div>
+<div class="modal" id="modal-eng">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="eg-h">
+    <div class="sheet-h"><h3 id="eg-h">🔧 Report fabric fault</h3><button class="x" onclick="closeModal('modal-eng')" aria-label="Close">×</button></div>
+    <p class="muted" style="font-size:13px;margin-bottom:8px">Send each fault to the engineering team. "Outlook + photo" opens the share menu: choose Outlook, then paste the address in To.</p>
+    <div id="eg-list"></div>
+    <button class="btn btn-full" style="margin-top:10px" onclick="closeModal('modal-eng')">Done</button>
   </div>
 </div>
 <div class="modal" id="modal-fix">
@@ -600,7 +608,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v42';
+const APP_VERSION='v43';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -793,7 +801,7 @@ let META={outbox:{},lastSync:{},lastTomb:{},legacyIds:null,legacyFlags:null,need
 const BLOBS=new Map();
 let CUR_UID=null;
 
-const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true,featWatermark:true,featShareFaults:true,featLockBtn:true,featHaptic:true,featIdleLock:true};
+const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true,featWatermark:true,featShareFaults:true,featLockBtn:true,featHaptic:true,featIdleLock:true,featQR:false,featFabricEmail:true,engEmail:'',engName:'One Eng Team'};
 function settings(){ return {...DEFAULT_SETTINGS,...(ST.config.find(c=>c.id==='settings')||{})}; }
 function saveSettings(patch){ put('config',{...settings(),...patch,id:'settings'}); }
 function flags(){ return ST.config.find(c=>c.id==='flags')||{id:'flags'}; }
@@ -1280,7 +1288,7 @@ function savePin(){
 function updateShell(){
   const m=me(); if(!m) return;
   $('me-chip').textContent=initials(m.name); $('me-chip').title=`${m.name}, ${ROLE_LABEL[m.role]||m.role}`;
-  $('nav-admin').hidden=!isAdmin(); $('nav-dash').hidden=!isAdmin(); $('lock-btn').hidden=settings().featLockBtn===false; resetIdleTimer();
+  $('nav-admin').hidden=!isAdmin(); $('nav-dash').hidden=!isAdmin(); $('lock-btn').hidden=settings().featLockBtn===false; $('home-qr-btn').hidden=!featOn('featQR'); resetIdleTimer();
   updateRoundBar(); setSync();
 }
 function openSession(){ const m=me(); return m?ST.sessions.find(s=>(s.status==='open'||s.status==='signed')&&s.ownerId===m.id)||null:null; }
@@ -1401,7 +1409,7 @@ function renderTier(){
   const toilets=allToilets().filter(x=>x.zone===curZone&&x.tier===curTier);
   const allIds=[...areas.map(a=>a.id),...toilets.map(x=>'t_'+x.id)];
   $('tier-head').innerHTML=`<div class="loc-head"><span class="plate" aria-hidden="true">${z.id}</span><div><h1>${esc(t.label)}</h1><div class="pg-sub">${esc(z.name)}${allIds.length?`, ${doneToday(allIds)} of ${allIds.length} audited today`:''}</div></div></div>`;
-  $('tier-tools').innerHTML=admin?`<div style="margin:6px 0 2px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="openAreaModal()">Add area</button>${allIds.length?'<button class="btn btn-sm" onclick="printQrLabels()">🏷️ QR labels</button>':''}</div>`:'';
+  $('tier-tools').innerHTML=admin?`<div style="margin:6px 0 2px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-sm" onclick="openAreaModal()">Add area</button>${allIds.length&&featOn('featQR')?'<button class="btn btn-sm" onclick="printQrLabels()">🏷️ QR labels</button>':''}</div>`:'';
   const sub=a=>`<span>${a.items.length} checks</span>${lastTxtOf(a.id)}`;
   let html='', shown=0;
   // 1. Toilets
@@ -1742,7 +1750,7 @@ async function saveAudit(){
     auditorId:m.id,auditorName:m.name});
   linkAudits(); draft={targetId:null,results:{},startedAt:''}; clearDraft();
   toast(`Audit saved: ${pctOf(pass,fail)}%`);
-  navigate(backTo&&backTo!=='pg-audit'?backTo:'pg-tier');
+  navigate(backTo&&backTo!=='pg-audit'?backTo:'pg-tier'); offerEngEmail(endedAt);
 }
 
 // ════════════ FINISH AND SIGN ════════════
@@ -1925,7 +1933,7 @@ function renderFabric(){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-sm" onclick="setReportPreset(7)">Last 7 days</button><button class="btn btn-sm" onclick="setReportMonth()">This month</button><button class="btn btn-sm btn-quiet" onclick="resetReportFilters()">Clear dates</button>${list.length?'<button class="btn btn-sm btn-brand" onclick="printFabricReport()">Fabric issues report</button>':''}</div></div>
     ${Object.keys(map).length?`<h2 class="sec">Most common <span class="n">${list.length}</span></h2><div class="panel">${Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([n,v])=>`<div class="issue"><span>${esc(n)}</span><strong>${v}</strong></div>`).join('')}</div>`:''}
     <h2 class="sec">All fabric issues</h2>
-    ${list.length?`<div class="list">${list.map(f=>`<div class="row"><div class="ico" aria-hidden="true">🔧</div><div class="main"><div class="t">${esc(f.a.name)}</div><div class="s"><span>${esc(f.it.name)}: <b>${esc(fabricReasons(f.it).join(', '))}</b></span>${f.it.note?`<span>${esc(f.it.note)}</span>`:''}<span>${fmtDT(f.a.endedAt)}, Zone ${f.a.zone}, ${esc(f.a.auditorName||'')}</span></div></div>${f.it.photoId?`<div class="acts"><button class="btn btn-sm" onclick="viewPhoto('${f.it.photoId}')">Photo</button></div>`:''}</div>`).join('')}</div>`:'<div class="panel"><p class="muted">No fabric issues recorded.</p></div>'}`;
+    ${list.length?`<div class="list">${list.map(f=>`<div class="row"><div class="ico" aria-hidden="true">🔧</div><div class="main"><div class="t">${esc(f.a.name)}</div><div class="s"><span>${esc(f.it.name)}: <b>${esc(fabricReasons(f.it).join(', '))}</b></span>${f.it.note?`<span>${esc(f.it.note)}</span>`:''}<span>${fmtDT(f.a.endedAt)}, Zone ${f.a.zone}, ${esc(f.a.auditorName||'')}</span></div></div><div class="acts">${f.it.photoId?`<button class="btn btn-sm" onclick="viewPhoto('${f.it.photoId}')">Photo</button>`:''}${featOn('featFabricEmail')?`<button class="btn btn-sm" onclick="engMail('${f.a.id}',${(f.a.items||[]).indexOf(f.it)},true)">📧 Email Eng</button>`:''}</div></div>`).join('')}</div>`:'<div class="panel"><p class="muted">No fabric issues recorded.</p></div>'}`;
 }
 async function viewPhoto(id){ const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups for this site',true); return; } const d=await getBlob(id); w.document.write(d?`<img src="${d}" style="max-width:100%">`:'<p style="font-family:Arial">Photo not available.</p>'); }
 async function fabricReportHTML(){
@@ -2140,7 +2148,10 @@ function renderAdmin(){
 
   <h2 class="sec">Extra features</h2>
   <div class="panel"><p class="muted" style="margin-bottom:6px;font-size:14px">Switch each one on or off for everyone on ${esc(TERM.name)}.</p>
-    ${[['featWatermark','Stamp terminal, area, date and time on photos'],['featShareFaults','📲 Send faults button on reports (WhatsApp / Teams)'],['featLockBtn','🔒 Lock button at the top of the screen'],['featIdleLock','Lock the app after 30 minutes without use'],['featHaptic','Vibrate on Pass / Fail / N/A taps (Android)']].map(([k,l])=>`<label class="switch-row" style="margin-top:8px"><input type="checkbox" ${set[k]!==false?'checked':''} onchange="setFeature('${k}',this.checked,'${encArg(l)}')"> ${l}</label>`).join('')}</div>
+    ${[['featWatermark','Stamp terminal, area, date and time on photos'],['featShareFaults','📲 Send faults button on reports (WhatsApp / Teams)'],['featLockBtn','🔒 Lock button at the top of the screen'],['featIdleLock','Lock the app after 30 minutes without use'],['featHaptic','Vibrate on Pass / Fail / N/A taps (Android)'],['featQR','🏷️ QR codes (scan button on Home, QR labels for admins)'],['featFabricEmail','🔧 Email fabric faults to the engineering team after each audit']].map(([k,l])=>`<label class="switch-row" style="margin-top:8px"><input type="checkbox" ${set[k]!==false?'checked':''} onchange="setFeature('${k}',this.checked,'${encArg(l)}')"> ${l}</label>`).join('')}
+    <div class="grid2" style="margin-top:12px"><div class="field"><label class="label" for="eng-name">Engineering team name</label><input class="input" id="eng-name" value="${esc(set.engName||'')}" placeholder="One Eng Team"></div>
+    <div class="field"><label class="label" for="eng-email">Engineering team email</label><input class="input" id="eng-email" type="email" inputmode="email" value="${esc(set.engEmail||'')}" placeholder="team@company.com"></div></div>
+    <button class="btn btn-brand" onclick="saveEng()">Save engineering contact</button></div>
 
   <h2 class="sec">Report emails</h2>
   <div class="panel"><p class="muted" style="margin-bottom:10px;font-size:14px">Signed rounds are emailed to the manager emails. Every signed round also has an Email button under Reports.</p>
@@ -2975,14 +2986,15 @@ function renderActions(){
     <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-sm ${ACT_VIEW==='open'?'btn-brand':''}" onclick="ACT_VIEW='open';renderSessions()">Open</button><button class="btn btn-sm ${ACT_VIEW==='resolved'?'btn-brand':''}" onclick="ACT_VIEW='resolved';renderSessions()">Resolved</button></div></div>
     ${list.length?`<div class="list">${list.map(a=>{ const fails=(a.items||[]).filter(it=>it.status==='fail');
       return `<div class="row"><div class="ico" aria-hidden="true">${a.followUpStatus==='resolved'?'✅':'⚠️'}</div><div class="main"><div class="t">${esc(a.name)}</div><div class="s"><span>${fails.map(it=>esc(it.name)+(it.reasons&&it.reasons.length?': <b>'+esc(it.reasons.join(', '))+'</b>':'')).join('<br>')}</span><span>${fmtDT(a.endedAt)}, Zone ${a.zone}, ${esc(a.auditorName||'')}</span>${a.followUpStatus==='resolved'?`<span style="color:var(--pass);font-weight:600">Resolved ${fmtDT(a.resolvedAt)} by ${esc(a.followUpOwner||a.resolvedByName||'')}${a.resolveNote?': '+esc(a.resolveNote):''}</span>`:''}</div></div>
-      <div class="acts">${a.followUpStatus==='resolved'?(a.resolvePhotoId?`<button class="btn btn-sm" onclick="viewPhoto('${a.resolvePhotoId}')">After photo</button>`:''):`<button class="btn btn-sm btn-pass" onclick="openResolve('${a.id}')">Resolve</button>`}</div></div>`; }).join('')}</div>`
+      <div class="acts">${a.followUpStatus==='resolved'?(`<button class="btn btn-sm" onclick="viewBeforeAfter('${a.id}')">📷 Before & After</button>`):`<button class="btn btn-sm btn-pass" onclick="openResolve('${a.id}')">📷 Before & After</button>`}</div></div>`; }).join('')}</div>`
       :`<div class="panel"><p class="muted">${ACT_VIEW==='open'?'No open actions. Everything that failed has been put right.':'Nothing resolved yet.'}</p></div>`}`;
 }
 function openResolve(id){
   const a=ST.audits.find(x=>x.id===id); if(!a) return; RS_PHOTO='';
-  $('rs-aid').value=id; $('rs-owner').value=me()?me().name:''; $('rs-note').value=''; $('rs-thumb').hidden=true; $('rs-thumb').removeAttribute('src');
+  $('rs-aid').value=id; $('rs-owner').value=''; $('rs-note').value=''; $('rs-thumb').hidden=true; $('rs-thumb').removeAttribute('src');
   const fails=(a.items||[]).filter(it=>it.status==='fail');
-  $('rs-info').innerHTML=`<b>${esc(a.name)}</b><br>${fails.map(it=>esc(it.name)+(it.reasons&&it.reasons.length?' ('+esc(it.reasons.join(', '))+')':'')).join('<br>')}`;
+  $('rs-info').innerHTML=`<b>${esc(a.name)}</b><br>${fails.map(it=>esc(it.name)+(it.reasons&&it.reasons.length?' ('+esc(it.reasons.join(', '))+')':'')).join('<br>')}<div id="rs-before" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>`;
+  fails.filter(it=>it.photoId).forEach(async it=>{ const d=await getBlob(it.photoId); if(d&&$('rs-before')) $('rs-before').insertAdjacentHTML('beforeend',`<figure style="margin:0;width:48%"><img src="${d}" style="width:100%;border-radius:8px" alt="Before"><figcaption style="font-size:12px;font-weight:700">BEFORE</figcaption></figure>`); });
   openModal('modal-resolve');
 }
 function setResolvePhoto(input){
@@ -2992,7 +3004,7 @@ function setResolvePhoto(input){
 async function saveResolution(){
   const id=$('rs-aid').value, a=ST.audits.find(x=>x.id===id); if(!a) return;
   const owner=$('rs-owner').value.replace(/\s+/g,' ').trim(), note=$('rs-note').value.replace(/\s+/g,' ').trim();
-  if(owner.length<2){ toast('Write who put it right',true); $('rs-owner').focus(); return; }
+  if(owner.length<2){ toast('Write the operative who resolved it',true); $('rs-owner').focus(); return; }
   if(note.length<3){ toast('Write what was done',true); $('rs-note').focus(); return; }
   const photoId=RS_PHOTO?await putBlob(RS_PHOTO):'', m=me();
   put('logs',{id:newId('lg'),at:new Date().toISOString(),by:m?m.id:'',byName:m?m.name:'',action:'Action resolved',detail:(a.name+': '+note).slice(0,200),
@@ -3028,6 +3040,56 @@ function resetIdleTimer(){ clearTimeout(IDLE_T); if(CUR_UID&&featOn('featIdleLoc
 ['touchstart','click','keydown','scroll'].forEach(ev=>document.addEventListener(ev,resetIdleTimer,{passive:true,capture:true}));
 // 5. Vibrate on taps
 function buzz(p){ try{ if(featOn('featHaptic')&&navigator.vibrate) navigator.vibrate(p); }catch(e){} }
+
+// ════════════ v43: fabric fault email to engineering, Before & After view ════════════
+function saveEng(){ const e=$('eng-email').value.trim(), n=$('eng-name').value.replace(/\s+/g,' ').trim();
+  if(e&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ toast('Check the email address',true); return; }
+  saveSettings({engEmail:e,engName:n||'One Eng Team'}); logAct('Engineering contact changed',e||'removed'); toast('Saved'); }
+function fabricOf(a){ return (a.items||[]).map((it,i)=>({it,i})).filter(x=>isFabricIssue(x.it)); }
+function offerEngEmail(endedAt){
+  if(!featOn('featFabricEmail')) return; const m=me();
+  const a=ST.audits.find(x=>x.endedAt===endedAt&&(!m||x.auditorId===m.id)); if(!a) return;
+  const list=fabricOf(a); if(!list.length) return;
+  $('eg-list').innerHTML=`<div class="list">${list.map(({it,i})=>`<div class="row"><div class="ico" aria-hidden="true">🔧</div><div class="main"><div class="t">${esc(it.name)}</div><div class="s"><span>${esc(fabricReasons(it).join(', '))}</span></div></div>
+    <div class="acts" style="display:flex;flex-direction:column;gap:6px">${it.photoId?`<button class="btn btn-sm btn-brand" onclick="engMail('${a.id}',${i},true)">📧 Outlook + photo</button>`:''}<button class="btn btn-sm" onclick="engMail('${a.id}',${i},false)">✉️ Email${it.photoId?' (no photo)':''}</button></div></div>`).join('')}</div>`;
+  setTimeout(()=>openModal('modal-eng'),350);
+}
+function engText(a,it){
+  const set=settings(), loc=a.location||[a.name,'Zone '+a.zone].filter(Boolean).join(', ');
+  const fault=[it.name,fabricReasons(it).join(', '),it.note||''].filter(Boolean).join(' - ');
+  const subject=`Fabric fault: ${a.name} - ${fabricReasons(it)[0]||it.name}`;
+  const body=`Hi ${set.engName||'One Eng Team'},\n\nLocation: ${loc}\n\nFault: ${fault}\n\nPlease see the attached picture for your reference.\n\nReported: ${fmtDT(a.endedAt)}\nBy: ${(me()&&me().name)||a.auditorName||''}`;
+  return {subject,body,to:set.engEmail||''};
+}
+async function engMail(aid,i,withPhoto){
+  const a=ST.audits.find(x=>x.id===aid), it=a&&(a.items||[])[i]; if(!it) return;
+  const t=engText(a,it);
+  if(withPhoto&&it.photoId){
+    const d=await getBlob(it.photoId);
+    if(d){ const blob=await (await fetch(d)).blob(), file=new File([blob],`fault-${String(a.name).replace(/[^\w]+/g,'-').slice(0,40)}.jpg`,{type:'image/jpeg'});
+      try{ if(t.to) await navigator.clipboard.writeText(t.to); }catch(e){}
+      if(navigator.canShare&&navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file],title:t.subject,text:t.body}); logAct('Fabric fault emailed',`${a.name}: ${it.name}`); if(t.to) toast('Eng email copied: paste it in To'); return; }
+        catch(e){ if(e&&e.name==='AbortError') return; }
+      }
+      saveBlob(file,file.name); toast('Photo downloaded. Attach it to the email.');
+    }
+  }
+  location.href=`mailto:${encodeURIComponent(t.to)}?subject=${encodeURIComponent(t.subject)}&body=${encodeURIComponent(t.body)}`;
+  logAct('Fabric fault emailed',`${a.name}: ${it.name}`);
+}
+async function viewBeforeAfter(id){
+  const a=ST.audits.find(x=>x.id===id); if(!a) return; const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups for this site',true); return; }
+  const fails=(a.items||[]).filter(it=>it.status==='fail'), before=[];
+  for(const it of fails) if(it.photoId){ const d=await getBlob(it.photoId); if(d) before.push({d,t:it.name}); }
+  const after=a.resolvePhotoId?await getBlob(a.resolvePhotoId):'';
+  const fig=(src,cap)=>src?`<figure><img src="${src}"><figcaption>${cap}</figcaption></figure>`:`<figure class="none"><div>No photo</div><figcaption>${cap}</figcaption></figure>`;
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Before and After</title><style>body{font-family:Arial,sans-serif;margin:14px;color:#1D1530}h1{font-size:20px;margin:0 0 4px}.s{color:#555;font-size:13px;margin-bottom:12px}.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}figure{margin:0}img{width:100%;border-radius:8px}figcaption{font-weight:700;margin-top:4px}.none div{height:140px;border:2px dashed #bbb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#888}.ok{background:#E2F4EB;color:#0F7B55;padding:8px 10px;border-radius:8px;margin:12px 0;font-weight:600}@media print{button{display:none}}</style></head><body>
+    <button onclick="print()" style="float:right;padding:6px 12px">Print</button><h1>${esc(a.name)}</h1><div class="s">${esc(a.location||'')}<br>Audited ${fmtDT(a.endedAt)} by ${esc(a.auditorName||'')}<br>${fails.map(it=>esc(it.name)+(it.reasons&&it.reasons.length?': '+esc(it.reasons.join(', ')):'')).join('<br>')}</div>
+    ${a.followUpStatus==='resolved'?`<div class="ok">Resolved ${fmtDT(a.resolvedAt)} by operative ${esc(a.followUpOwner||'')}${a.resolveNote?': '+esc(a.resolveNote):''}</div>`:'<div class="ok" style="background:#FDECEC;color:#C62828">Not resolved yet</div>'}
+    <div class="g">${fig(before[0]&&before[0].d,'BEFORE')}${fig(after,'AFTER')}</div>${before.slice(1).map(b=>`<div class="g" style="margin-top:10px">${fig(b.d,'BEFORE: '+esc(b.t))}<div></div></div>`).join('')}</body></html>`);
+  w.document.close();
+}
 
 </script>
 </body>
