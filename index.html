@@ -608,7 +608,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v45';
+const APP_VERSION='v46';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -1152,7 +1152,7 @@ function showLogin(){
   document.body.classList.remove('has-round'); $('login-card').dataset.mode=''; renderLogin();
 }
 function userOptions(users){ return users.map(u=>`<option value="${esc(u.id)}">${esc(u.name)} (${ROLE_LABEL[u.role]||esc(u.role)})</option>`).join(''); }
-function loginFoot(){ const ow=officialWarning(); $('login-foot').innerHTML=(ow?`<span style="color:#FFB4B4;font-weight:600">${esc(ow)}</span><br>`:'')+'Heathrow Audit '+APP_VERSION; }
+function loginFoot(){ const ow=officialWarning(); $('login-foot').innerHTML=(ow?`<span style="color:#FFB4B4;font-weight:600">${esc(ow)}</span><br>`:'')+'Heathrow Audit '+APP_VERSION+' · <button class="linkbtn" style="color:inherit;text-decoration:underline" onclick="checkUpdate(true)">Check for update</button>'; }
 const changeTermBtn=()=>`<button class="linkbtn" onclick="switchTerminal()">Not ${TERM?esc(TERM.name):''}? Change terminal</button>`;
 function renderLogin(){
   if(!TERM){ showTermPicker(); return; }
@@ -2373,7 +2373,7 @@ function renderAccount(){
   const m=me(); if(!m) return;
   $('account-body').innerHTML=`<div class="panel" style="margin-top:12px"><div style="display:flex;align-items:center;gap:12px"><div class="ico" aria-hidden="true" style="width:50px;height:50px;border-radius:50%;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:21px;color:var(--brand)">${esc(initials(m.name))}</div><div><div style="font-weight:700;font-size:18px">${esc(m.name)}</div><span class="chip chip-internal">${ROLE_LABEL[m.role]||esc(m.role)}</span></div></div></div>
   <div class="panel"><div class="kv"><span>Connection</span><span>${!DB?'Not connected':ONLINE?'Online':'Offline'}</span></div><div class="kv"><span>Waiting to upload</span><span>${pendingCount()}</span></div><div class="kv"><span>Last synced</span><span>${META.lastOk?fmtDT(META.lastOk):'Not yet'}</span></div><div class="kv"><span>App version</span><span>${APP_VERSION}</span></div></div>
-  <div style="display:grid;gap:10px;margin-top:12px"><button class="btn btn-lg" onclick="openPinModal('change','${m.id}')">Change my PIN</button><button class="btn btn-lg" onclick="switchTerminal()">Change terminal (now ${esc(TERM.name)})</button><button class="btn btn-lg btn-danger" onclick="confirmSignOut()">Sign out</button></div>
+  <div style="display:grid;gap:10px;margin-top:12px"><button class="btn btn-lg btn-brand" onclick="checkUpdate(true)">🔄 Check for update (now ${APP_VERSION})</button><button class="btn btn-lg" onclick="openPinModal('change','${m.id}')">Change my PIN</button><button class="btn btn-lg" onclick="switchTerminal()">Change terminal (now ${esc(TERM.name)})</button><button class="btn btn-lg btn-danger" onclick="confirmSignOut()">Sign out</button></div>
   <p class="muted" style="margin-top:14px;font-size:13px">To put the app on your home screen, open the browser menu and choose Add to Home screen.</p>`;
 }
 
@@ -3120,6 +3120,37 @@ function sharedCreate(){
 }
 function sharedToggle(){ const u=sharedUser(); if(!isAdmin()||!u) return; const on=u.active===false; put('users',{...u,active:on}); logAct('Shared login '+(on?'switched on':'switched off'),u.name); toast(on?'Shared login on':'Shared login off'); renderAdmin(); }
 function sharedResetPin(){ const u=sharedUser(); if(!isAdmin()||!u) return; const salt=newId('s'); put('users',{...u,salt,pinHash:hashPin(salt,'2222')}); lsSet(LK('t3a_fail_'+u.id),null); logAct('Shared login PIN reset',u.name); toast('PIN reset to 2222'); }
+
+// ════════════ v46: check for a new version and update ════════════
+const vNum=v=>+String(v||'').replace(/\D/g,'')||0;
+let UPD_BUSY=false;
+async function checkUpdate(manual){
+  if(UPD_BUSY) return; UPD_BUSY=true;
+  try{
+    if(!navigator.onLine){ if(manual) toast('No internet. Try again when online.',true); return; }
+    const r=await fetch(location.pathname+'?chk='+Date.now(),{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
+    const m=(await r.text()).match(/APP_VERSION='(v\d+)'/); const latest=m?m[1]:'';
+    if(latest&&vNum(latest)>vNum(APP_VERSION)) showUpdateBar(latest);
+    else if(manual) toast(`You have the latest version (${APP_VERSION})`);
+  }catch(e){ if(manual) toast('Could not check for updates. Try again.',true); }
+  finally{ UPD_BUSY=false; }
+}
+function showUpdateBar(v){
+  let b=$('upd-bar'); if(!b){ b=document.createElement('div'); b.id='upd-bar'; b.style.cssText='position:fixed;left:12px;right:12px;bottom:calc(var(--nav,64px) + 14px + env(safe-area-inset-bottom,0px));z-index:500;background:#0F7B55;color:#fff;border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.25);font-weight:600'; document.body.appendChild(b); }
+  b.innerHTML=`<span style="flex:1">New version ${esc(v)} is ready.</span><button class="btn btn-sm" style="background:#fff;color:#0F7B55;border-color:#fff" onclick="applyUpdate()">Update now</button>`;
+}
+async function applyUpdate(){
+  try{ if(draft&&draft.targetId) saveDraft(true); }catch(e){}
+  try{ await persistNow(); }catch(e){}
+  try{ if(window.caches){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); } }catch(e){}
+  try{ if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(x=>x.unregister())); } }catch(e){}
+  location.replace(location.pathname+'?v='+Date.now()+location.hash);
+}
+setTimeout(()=>checkUpdate(false),4000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') checkUpdate(false); });
+setInterval(()=>checkUpdate(false),30*60000);
+// tidy the ?v= from the address bar after an update
+if(/[?&]v=\d+/.test(location.search)) try{ history.replaceState(null,'',location.pathname+location.hash); }catch(e){}
 
 </script>
 </body>
