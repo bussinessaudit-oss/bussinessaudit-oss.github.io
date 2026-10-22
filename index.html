@@ -620,7 +620,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v48';
+const APP_VERSION='v49';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -813,7 +813,7 @@ let META={outbox:{},lastSync:{},lastTomb:{},legacyIds:null,legacyFlags:null,need
 const BLOBS=new Map();
 let CUR_UID=null;
 
-const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true,featWatermark:true,featShareFaults:true,featLockBtn:true,featHaptic:true,featIdleLock:true,featQR:false,featFabricEmail:true,engEmail:'',engName:'One Eng Team'};
+const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true,featWatermark:true,featShareFaults:true,featLockBtn:true,featHaptic:true,featIdleLock:true,featQR:false,featFabricEmail:true,engEmail:'',engName:'One Eng Team',headName:'',headEmail:'',featMonthly:true,monthlySent:''};
 function settings(){ return {...DEFAULT_SETTINGS,...(ST.config.find(c=>c.id==='settings')||{})}; }
 function saveSettings(patch){ put('config',{...settings(),...patch,id:'settings'}); }
 function flags(){ return ST.config.find(c=>c.id==='flags')||{id:'flags'}; }
@@ -1263,7 +1263,7 @@ setInterval(()=>{ if(CUR_UID&&sessionExpired()&&!$('login').classList.contains('
 function logAct(action,detail){ const m=me(); put('logs',{id:newId('lg'),at:new Date().toISOString(),by:m?m.id:'',byName:m?m.name:'',action,detail:String(detail||'').slice(0,200)}); }
 function enterApp(){
   $('login').classList.remove('open'); $('hdr').classList.remove('hide'); $('nav').classList.remove('hide');
-  claimLegacy(); updateShell(); navigate('pg-home'); restoreDraft().then(()=>checkDeepLink());
+  claimLegacy(); updateShell(); navigate('pg-home'); restoreDraft().then(()=>checkDeepLink()); setTimeout(()=>{ try{ monthlyAuto(); }catch(e){} },8000);
 }
 function signOut(){ if(draft.targetId){ saveDraft(true); draft={targetId:null,results:{},startedAt:''}; } document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); $('pg-home').classList.add('active'); CUR_UID=null; lsSet(LK('t3a_uid'),null); lsSet(LK('t3a_since'),null); showLogin(); }
 function confirmSignOut(){ if(openSession()&&!confirm('You have an audit running. It stays saved and you can finish it after signing in again. Sign out?')) return; signOut(); }
@@ -2171,6 +2171,7 @@ function renderAdmin(){
     <div class="field"><label class="label" for="eng-email">Engineering team email</label><input class="input" id="eng-email" type="email" inputmode="email" value="${esc(set.engEmail||'')}" placeholder="team@company.com"></div></div>
     <button class="btn btn-brand" onclick="saveEng()">Save engineering contact</button></div>
 
+  ${monthlyAdminHTML()}
   <h2 class="sec">Report emails</h2>
   <div class="panel"><p class="muted" style="margin-bottom:10px;font-size:14px">Signed rounds are emailed to the manager emails. Every signed round also has an Email button under Reports.</p>
     <div class="field"><label class="label" for="em-mgr">Manager emails (separate with commas)</label><input class="input" id="em-mgr" type="text" inputmode="email" autocomplete="off" value="${esc(set.managerEmails)}"></div>
@@ -2671,8 +2672,9 @@ function doPost(e){
     const inline={};
     (d.photos||[]).forEach(function(p,i){ inline['p'+i]=Utilities.newBlob(Utilities.base64Decode(String(p).split(',')[1]),'image/jpeg','photo'+i+'.jpg'); });
     var att=[]; if(d.pdf) att.push(Utilities.newBlob(Utilities.base64Decode(d.pdf),'application/pdf',d.pdfName||'Audit-Report.pdf'));
+    (d.files||[]).forEach(function(f){ att.push(Utilities.newBlob(Utilities.base64Decode(f.b64),f.mime||'application/octet-stream',f.name||'file')); });
     MailApp.sendEmail({to:d.to,cc:d.cc||'',subject:d.subject,htmlBody:d.html,inlineImages:inline,attachments:att,name:d.fromName||'Heathrow Audit'});
-    return out({ok:true,v:2,attached:att.length});
+    return out({ok:true,v:3,attached:att.length});
   }catch(err){ return out({ok:false,error:String(err)}); }
 }
 function out(o){ return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
@@ -2723,7 +2725,7 @@ async function sendRoundEmail(id,quiet,toList){
     catch(netErr){ logAct('Report email: no reply',`${m.subject} to ${to.join(', ')}`); if(!quiet) toast('Google did not reply, but the email has most likely gone. Check the inbox.',true); return 'unsure'; }
     let ok=res.ok, j={}; try{ j=await res.json(); ok=!!j.ok; if(!ok) throw new Error(j.error||'failed'); }catch(e){ if(String(e.message||'').match(/Wrong key|failed|Exception/)) throw e; }
     logAct('Report emailed',`${m.subject} to ${to.join(', ')}${pdf&&j.attached?' (PDF attached)':' (no PDF)'}`);
-    if(pdf&&j.v!==2) toast('Email sent, but WITHOUT the PDF: the Google script is the old version. Admin > Report emails: copy the script again and deploy a New version.',true);
+    if(pdf&&!(j.v>=2)) toast('Email sent, but WITHOUT the PDF: the Google script is the old version. Admin > Report emails: copy the script again and deploy a New version.',true);
     else if(!pdf) toast('Email sent, but WITHOUT the PDF: '+pdfErr,true);
     else toast('Report emailed with PDF to '+to.length+(to.length===1?' manager':' managers'));
     return true;
@@ -2904,7 +2906,7 @@ function copyScript(){ navigator.clipboard.writeText(APPS_SCRIPT(mailKey())).the
 async function testEmail(){
   const set=settings(), to=mailList(set.managerEmails); if(!set.mailUrl){ toast('Save the web app address first',true); return; }
   try{ const r=await fetch(set.mailUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:set.emailKey,to:(me()&&to[0])||to.join(','),subject:`${TID} Audit: test email`,html:'<p style="font-family:Arial">Automatic email from the audit app is working.</p>',photos:[]})});
-    const j=await r.json().catch(()=>({ok:r.ok})); toast(!j.ok?'Not sent: '+(j.error||'unknown'):j.v===2?'Test email sent to '+(to[0]||'')+'. Script is up to date (PDFs will be attached).':'Test email sent, but the Google script is OLD: PDFs will not be attached. Copy the script again and deploy a New version.',!j.ok||j.v!==2); }
+    const j=await r.json().catch(()=>({ok:r.ok})); toast(!j.ok?'Not sent: '+(j.error||'unknown'):j.v>=3?'Test email sent to '+(to[0]||'')+'. Script is up to date (PDF and Excel will be attached).':'Test email sent, but the Google script is OLD: attachments may be missing. Copy the script again and deploy a New version.',!j.ok||!(j.v>=3)); }
   catch(e){ toast('Not sent. Check the address and that access is set to Anyone.',true); }
 }
 
@@ -3209,6 +3211,121 @@ function deleteUser(){
   if(!confirm(`Delete ${u.name}? They will not be able to sign in. Their past audits and reports stay.`)) return;
   drop('users',u.id); lsSet(LK('t3a_fail_'+u.id),null); logAct('User deleted',`${u.name} (${ROLE_LABEL[u.role]||u.role})`);
   closeModal('modal-user'); renderAdmin(); toast(u.name+' deleted');
+}
+
+// ════════════ v49: month-end figures for the Head of Soft Services (all terminals) ════════════
+const XLSX_LIB='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const prevMonthKey=()=>{ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); return monthKey(d); };
+const monthName=mk=>{ const [y,m]=mk.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'}); };
+const objList=v=>v?Object.entries(v).map(([k,x])=>({id:k,...x})):[];
+// Same corrections as the app applies (deleted audits/rounds, changed times)
+function fixedAudits(audits,sessions,logs){
+  const fx=logs.filter(l=>l&&l.fix&&l.fix.id).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  const delS=new Set(), delA=new Set(), time={};
+  fx.forEach(l=>{ const f=l.fix; if(f.type==='del-session') delS.add(f.id); else if(f.type==='del-audit') delA.add(f.id); else if(f.type==='time') time[f.id]=f; });
+  let out=audits.filter(a=>!delA.has(a.id)&&!delS.has(a.sessionId));
+  Object.values(time).forEach(f=>{ const s=sessions.find(x=>x.id===f.id); if(!s) return; const delta=new Date(f.start)-new Date(s.start); if(!Number.isFinite(delta)) return;
+    out.forEach(a=>{ if(a.sessionId!==s.id) return; const t=new Date(new Date(a.endedAt||s.start).getTime()+delta); if(Number.isFinite(t.getTime())) a.date=localDay(t.toISOString()); }); });
+  return out;
+}
+async function terminalMonth(t,mk){
+  let audits=[], sessions=[], logs=[], set={};
+  if(t.id===TID){ audits=ST.audits; set=settings(); }
+  else {
+    if(!DB) throw new Error('Not connected to the database');
+    const get=async p=>{ const s=await withTimeout(DB.ref(t.root+'/'+p).once('value'),20000); return s&&s.val(); };
+    const [a,s,l,c]=await Promise.all([get('audits'),get('sessions'),get('logs'),get('config/settings')]);
+    audits=fixedAudits(objList(a),objList(s),objList(l)); set={...DEFAULT_SETTINGS,...(c||{})};
+  }
+  const aud=audits.filter(a=>String(a.date||'').slice(0,7)===mk);
+  const sc=list=>{ const s=list.filter(a=>(+a.pass||0)+(+a.fail||0)>0); return s.length?Math.round(s.reduce((n,a)=>n+pctOf(+a.pass||0,+a.fail||0),0)/s.length*10)/10:null; };
+  const tiers=TIERS.map(x=>{ const l=aud.filter(a=>a.tier===x.id), req=+set['target_'+x.id]||0; return {tier:x.name,done:l.length,req,diff:l.length-req,score:sc(l)}; });
+  return {id:t.id,name:t.name,done:aud.length,req:tiers.reduce((n,x)=>n+x.req,0),score:sc(aud),tiers};
+}
+async function monthlyData(mk){ const rows=[]; for(const t of TERMINALS){ try{ rows.push(await terminalMonth(t,mk)); }catch(e){ const set={...DEFAULT_SETTINGS}; const tiers=TIERS.map(x=>({tier:x.name,done:0,req:+set['target_'+x.id]||0,diff:-(+set['target_'+x.id]||0),score:null})); rows.push({id:t.id,name:t.name+' (no data)',done:0,req:tiers.reduce((n,x)=>n+x.req,0),score:null,tiers}); } } return rows; }
+function monthlyHTML(mk,rows,forPdf){
+  const G='#0F7B55',R='#C62828', sla=+settings().slaTarget||90, set=settings();
+  const td=(v,c,b)=>`<td style="padding:7px 9px;border-bottom:1px solid #E4DEEE;text-align:center;${c?'color:'+c+';':''}${b?'font-weight:700;':''}">${v}</td>`;
+  const scTd=s=>td(s==null?'–':s+'%',s==null?'':(s>=sla?G:R),true);
+  const tot={done:rows.reduce((n,r)=>n+r.done,0),req:rows.reduce((n,r)=>n+r.req,0)};
+  const allS=rows.flatMap(r=>r.score==null?[]:[[r.score,r.tiers.reduce((n,x)=>n+(x.score==null?0:x.done),0)]]), w=allS.reduce((n,x)=>n+x[1],0);
+  const avg=w?Math.round(allS.reduce((n,x)=>n+x[0]*x[1],0)/w*10)/10:null;
+  const box=(v,l,c)=>`<td style="width:33%;padding:6px"><div style="border:1px solid #E4DEEE;border-radius:10px;padding:10px;text-align:center"><div style="font-size:24px;font-weight:700;${c?'color:'+c:''}">${v}</div><div style="font-size:12px;color:#6B6380">${l}</div></div></td>`;
+  const sum=rows.map(r=>`<tr><td style="padding:7px 9px;border-bottom:1px solid #E4DEEE;font-weight:700">${esc(r.name)}</td>${td(r.done,'',true)}${td(r.req)}${td(r.req?Math.round(r.done/r.req*100)+'%':'–',r.done>=r.req?G:R,true)}${scTd(r.score)}</tr>`).join('');
+  const det=rows.map(r=>r.tiers.map((x,i)=>`<tr>${i?'':`<td rowspan="3" style="padding:7px 9px;border-bottom:2px solid #24123F;font-weight:700;vertical-align:top">${esc(r.name)}</td>`}<td style="padding:7px 9px;border-bottom:1px solid #E4DEEE">${x.tier}</td>${td(x.done,'',true)}${td(x.req)}${td((x.diff>=0?'+':'')+x.diff,x.diff>=0?G:R,true)}${scTd(x.score)}</tr>`).join('')).join('');
+  const th='padding:7px;background:#24123F;color:#fff;font-weight:700';
+  const first=String(set.headName||'').trim().split(' ')[0];
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Monthly audit figures ${esc(monthName(mk))}</title></head><body style="margin:0;background:${forPdf?'#fff':'#F4F2F8'};font-family:Arial,sans-serif;color:#1D1530">
+  <div style="max-width:700px;margin:0 auto;padding:${forPdf?'0':'16px'}">
+  <div style="background:#24123F;color:#fff;border-radius:12px 12px 0 0;padding:16px 18px"><div style="font-size:20px;font-weight:700">Monthly Audit Figures: ${esc(monthName(mk))}</div><div style="opacity:.85;font-size:13px">Heathrow cleaning audits, all terminals. Target score ${sla}%.</div></div>
+  <div style="background:#fff;border-radius:0 0 12px 12px;padding:16px 18px">
+  ${forPdf?'':`<p>Hi ${esc(first||'there')},</p><p>Please see the audit figures for ${esc(monthName(mk))} below. The same figures are attached as Excel and PDF.</p>`}
+  <table style="width:100%;border-collapse:collapse;margin:8px 0"><tr>${box(tot.done,'audits completed')}${box(tot.req,'audits required')}${box(avg==null?'–':avg+'%','average score',avg==null?'':(avg>=sla?G:R))}</tr></table>
+  <h3 style="margin:16px 0 6px">1. Summary by terminal</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:14px"><tr><th style="${th};text-align:left">Terminal</th><th style="${th}">Completed</th><th style="${th}">Required</th><th style="${th}">Done</th><th style="${th}">Avg score</th></tr>${sum}</table>
+  <h3 style="margin:16px 0 6px">2. By tier</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:14px"><tr><th style="${th};text-align:left">Terminal</th><th style="${th};text-align:left">Tier</th><th style="${th}">Completed</th><th style="${th}">Required</th><th style="${th}">Difference</th><th style="${th}">Avg score</th></tr>${det}</table>
+  <p style="font-size:12px;color:#6B6380;margin-top:10px">Required = each terminal's monthly audit target. Green = target met, red = below target. Made ${fmtDT(new Date().toISOString())}.</p>
+  ${forPdf?'':'<p>Kind regards</p>'}</div></div></body></html>`;
+}
+async function monthlyExcel(mk,rows){
+  if(!window.XLSX) await loadScript(XLSX_LIB);
+  const wb=XLSX.utils.book_new();
+  const s1=[['Terminal','Completed','Required','Done %','Avg score %'],...rows.map(r=>[r.name,r.done,r.req,r.req?Math.round(r.done/r.req*100):'',r.score==null?'':r.score])];
+  const s2=[['Terminal','Tier','Completed','Required','Difference','Avg score %'],...rows.flatMap(r=>r.tiers.map(x=>[r.name,x.tier,x.done,x.req,x.diff,x.score==null?'':x.score]))];
+  const a=XLSX.utils.aoa_to_sheet(s1), b=XLSX.utils.aoa_to_sheet(s2); a['!cols']=[{wch:16},{wch:11},{wch:10},{wch:9},{wch:12}]; b['!cols']=[{wch:16},{wch:9},{wch:11},{wch:10},{wch:11},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,a,'Summary'); XLSX.utils.book_append_sheet(wb,b,'By tier');
+  const out=XLSX.write(wb,{bookType:'xlsx',type:'base64'});
+  return {b64:out,name:`Audit-Figures-${mk}.xlsx`,mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
+}
+let MONTHLY_BUSY=false;
+async function sendMonthly(mk,auto){
+  const set=settings(); if(MONTHLY_BUSY) return false;
+  const to=mailList(set.headEmail); if(!to.length){ if(!auto) toast('Add the Head of Soft Services email first',true); return false; }
+  if(!set.mailUrl){ if(!auto) toast('Set up Gmail in Admin > Report emails first',true); return false; }
+  if(!navigator.onLine){ if(!auto) toast('No internet. Try again later.',true); return false; }
+  MONTHLY_BUSY=true; if(!auto) toast('Collecting figures from all terminals…');
+  try{
+    const rows=await monthlyData(mk), html=monthlyHTML(mk,rows,false);
+    let pdf64='', xl=null;
+    try{ pdf64=await blobToB64(await htmlToPdf(monthlyHTML(mk,rows,true),`Audit-Figures-${mk}.pdf`)); }catch(e){}
+    try{ xl=await monthlyExcel(mk,rows); }catch(e){}
+    const subject=`Monthly Audit Figures: ${monthName(mk)}`;
+    let j={};
+    try{ const r=await fetch(set.mailUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:set.emailKey,to:to.join(','),cc:'',subject,html,photos:[],pdf:pdf64,pdfName:`Audit-Figures-${mk}.pdf`,files:xl?[xl]:[],fromName:'Heathrow Audit'})});
+      j=await r.json().catch(()=>({ok:r.ok})); if(!j.ok) throw new Error(j.error||'failed'); }
+    catch(e){ if(/Wrong key|failed|Exception/.test(String(e.message||''))) throw e; j={ok:true,unsure:true}; }
+    saveSettings({monthlySent:mk,monthlySentAt:new Date().toISOString()}); logAct('Monthly figures emailed',`${monthName(mk)} to ${to.join(', ')}${auto?' (automatic)':''}`);
+    if(!auto) toast(j.unsure?'Google did not reply, but the email has most likely gone.':(j.v>=3?'Monthly figures sent with PDF and Excel':'Sent, but the Google script is old: copy the script again for the Excel file'), !!j.unsure||!(j.v>=3));
+    else toast(`${monthName(mk)} figures emailed to ${set.headName||to[0]}`);
+    if($('admin-body')&&document.querySelector('#pg-admin.active')) renderAdmin();
+    return true;
+  }catch(e){ if(!auto) toast('Not sent: '+(e.message||'error'),true); return false; }
+  finally{ MONTHLY_BUSY=false; }
+}
+function monthlyAuto(){
+  const s=settings(); if(!isAdmin()||s.featMonthly===false||!s.headEmail||!s.mailUrl) return;
+  const mk=prevMonthKey(); if(s.monthlySent>=mk) return; sendMonthly(mk,true);
+}
+async function previewMonthly(){
+  const mk=$('mo-month').value, w=window.open('','_blank'); if(!w){ toast('Allow pop-ups for this site',true); return; }
+  w.document.write('<p style="font-family:Arial">Collecting figures from all terminals…</p>');
+  try{ const rows=await monthlyData(mk); w.document.open(); w.document.write(monthlyHTML(mk,rows,false)); w.document.close(); }
+  catch(e){ w.document.body.innerHTML='<p style="font-family:Arial">Could not collect the figures: '+esc(e.message||'error')+'</p>'; }
+}
+async function downloadMonthlyExcel(){ const mk=$('mo-month').value; try{ const rows=await monthlyData(mk), x=await monthlyExcel(mk,rows); const bin=atob(x.b64), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); saveBlob(new Blob([u],{type:x.mime}),x.name); }catch(e){ toast('Could not make the Excel file: '+(e.message||''),true); } }
+function saveHead(){ const n=$('mo-name').value.replace(/\s+/g,' ').trim(), e=$('mo-email').value.trim(); const bad=mailList(e).find(x=>!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)); if(bad){ toast('Check this email: '+bad,true); return; } saveSettings({headName:n,headEmail:e}); logAct('Monthly figures contact changed',e||'removed'); toast('Saved'); renderAdmin(); }
+function monthlyAdminHTML(){
+  const s=settings(), opts=[]; const d=new Date(); d.setDate(1);
+  for(let i=0;i<12;i++){ const mk=monthKey(d); opts.push(`<option value="${mk}" ${mk===prevMonthKey()?'selected':''}>${monthName(mk)}</option>`); d.setMonth(d.getMonth()-1); }
+  return `<h2 class="sec">Monthly figures</h2><div class="panel"><p class="muted" style="font-size:14px;margin-bottom:10px">On the 1st of each month the figures for all terminals (T2, T3, T4, T5, Rail) are emailed with Excel and PDF attached. It sends the first time an admin opens the app that month.</p>
+    <div class="grid2"><div class="field"><label class="label" for="mo-name">Name</label><input class="input" id="mo-name" value="${esc(s.headName||'')}" placeholder="Moin Khan"></div>
+    <div class="field"><label class="label" for="mo-email">Email</label><input class="input" id="mo-email" type="email" inputmode="email" value="${esc(s.headEmail||'')}" placeholder="name@company.com"></div></div>
+    <button class="btn btn-brand" onclick="saveHead()">Save contact</button>
+    <label class="switch-row" style="margin-top:10px"><input type="checkbox" ${s.featMonthly!==false?'checked':''} onchange="setFeature('featMonthly',this.checked,'${encArg('Automatic monthly figures email')}')"> Send automatically on the 1st</label>
+    <div class="kv" style="margin-top:8px"><span>Last sent</span><b>${s.monthlySent?esc(monthName(s.monthlySent))+(s.monthlySentAt?', '+fmtDT(s.monthlySentAt):''):'Not yet'}</b></div>
+    <div class="field" style="margin-top:10px"><label class="label" for="mo-month">Month</label><select class="input" id="mo-month">${opts.join('')}</select></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-act" onclick="sendMonthly($('mo-month').value,false)">📧 Send now</button><button class="btn" onclick="previewMonthly()">Preview</button><button class="btn" onclick="downloadMonthlyExcel()">Download Excel</button></div></div>`;
 }
 
 </script>
