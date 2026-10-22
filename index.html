@@ -505,6 +505,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
     <div class="field"><label class="label" for="usr-pin" id="usr-pin-lbl">PIN (4 to 6 digits)</label><input class="input" id="usr-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
     <label class="switch-row" id="usr-active-wrap"><input type="checkbox" id="usr-active" checked> Can sign in</label>
     <button class="btn btn-brand btn-lg btn-full" onclick="saveUser()">Save user</button>
+    <button class="btn btn-danger btn-full" id="usr-del" style="margin-top:10px" onclick="deleteUser()" hidden>🗑 Delete this user</button>
   </div>
 </div>
 
@@ -619,7 +620,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v47';
+const APP_VERSION='v48';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -2331,6 +2332,7 @@ function openUserModal(id){
   $('usr-role-wrap').hidden=owner; $('usr-role').value=u&&!owner?u.role:'supervisor';
   $('usr-pin').value=''; $('usr-pin-lbl').textContent=u?'New PIN (leave blank to keep the current one)':'PIN (4 to 6 digits)';
   $('usr-active-wrap').hidden=owner; $('usr-active').checked=!u||u.active!==false;
+  $('usr-del').hidden=!u||owner||u.id===CUR_UID;
   openModal('modal-user');
 }
 function saveUser(){
@@ -3199,6 +3201,15 @@ function clSave(){
   closeModal('modal-cl'); toast('Checklist saved'); renderAdmin();
 }
 function clReset(){ if(CLE.mode!=='type') return; CLE.items=[...CL_ORIG[CLE.key]]; renderCL(); toast('Original list loaded. Tap Save to keep it.'); }
+
+// ════════════ v48: delete a user ════════════
+function deleteUser(){
+  if(!isAdmin()) return; const id=$('usr-id').value, u=ST.users.find(x=>x.id===id);
+  if(!u||u.role==='admin'||u.id===CUR_UID) return;
+  if(!confirm(`Delete ${u.name}? They will not be able to sign in. Their past audits and reports stay.`)) return;
+  drop('users',u.id); lsSet(LK('t3a_fail_'+u.id),null); logAct('User deleted',`${u.name} (${ROLE_LABEL[u.role]||u.role})`);
+  closeModal('modal-user'); renderAdmin(); toast(u.name+' deleted');
+}
 
 </script>
 </body>
