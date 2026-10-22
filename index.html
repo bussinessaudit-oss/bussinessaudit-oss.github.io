@@ -608,7 +608,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v43';
+const APP_VERSION='v45';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -740,8 +740,8 @@ function slaFor(tier){
   if(tier){ const v=parseFloat(s['sla_'+tier]); if(Number.isFinite(v)) return v; }
   const g=parseFloat(s.slaTarget); return Number.isFinite(g)?g:90;
 }
-const pctColor=(p,tier)=>{ const t=slaFor(tier); return p>=t?'var(--pass)':p>=t-15?'var(--warn)':'var(--fail)'; };
-const pctHex=(p,tier)=>{ const t=slaFor(tier); return p>=t?'#0F7B55':p>=t-15?'#B26A00':'#C62828'; };
+const pctColor=(p,tier)=>{ const t=slaFor(tier); return p>=t?'var(--pass)':'var(--fail)'; };
+const pctHex=(p,tier)=>{ const t=slaFor(tier); return p>=t?'#0F7B55':'#C62828'; };
 function toast(msg,err=false){ const t=$('toast'); t.textContent=msg; t.className=err?'show err':'show'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.className='',2600); }
 
 // ════════════ SHA-256 (same result on every phone and laptop) ════════════
@@ -1291,7 +1291,7 @@ function updateShell(){
   $('nav-admin').hidden=!isAdmin(); $('nav-dash').hidden=!isAdmin(); $('lock-btn').hidden=settings().featLockBtn===false; $('home-qr-btn').hidden=!featOn('featQR'); resetIdleTimer();
   updateRoundBar(); setSync();
 }
-function openSession(){ const m=me(); return m?ST.sessions.find(s=>(s.status==='open'||s.status==='signed')&&s.ownerId===m.id)||null:null; }
+function openSession(){ const m=me(); return m?ST.sessions.find(s=>(s.status==='open'||s.status==='signed')&&s.ownerId===m.id&&(!m.shared||s.device===deviceId()))||null:null; }
 function sessionMode(s){ return s.mode||((s.audits||[]).some(a=>a.type==='client')?'client':'internal'); }
 function updateRoundBar(){
   const s=openSession(), bar=$('roundbar');
@@ -1325,7 +1325,7 @@ function startRound(){
   const mode=document.querySelector('input[name="st-mode"]:checked').value;
   const clientName=$('st-client').value.replace(/\s+/g,' ').trim(), clientOrg=$('st-org').value.replace(/\s+/g,' ').trim();
   if(mode==='client'&&!clientName){ toast("Enter the client representative's name",true); $('st-client').focus(); return; }
-  put('sessions',{id:newId('s'),status:'open',mode,start:new Date().toISOString(),end:'',ownerId:m.id,ownerName:m.name,clientName:mode==='client'?clientName:'',clientOrg:mode==='client'?clientOrg:'',auditor:'',sigId:'',clientSigId:''});
+  put('sessions',{id:newId('s'),status:'open',mode,start:new Date().toISOString(),end:'',ownerId:m.id,ownerName:m.name,clientName:mode==='client'?clientName:'',clientOrg:mode==='client'?clientOrg:'',auditor:'',sigId:'',clientSigId:'',device:deviceId()});
   linkAudits(); closeModal('modal-start'); updateRoundBar();
   toast(mode==='client'?'Client audit started':'Internal audit started');
   const t=PENDING_AUDIT; PENDING_AUDIT=null;
@@ -1775,7 +1775,7 @@ function openSignModal(){
   $('sg-h').textContent=client?'Finish client audit':'Finish internal audit';
   $('sign-main').hidden=!n; $('sign-empty').hidden=!!n;
   $('sign-summary').textContent=n?`${n} ${n===1?'area':'areas'} audited. Pass ${st.pass}, fail ${st.fail}, N/A ${st.na}. Score ${st.pct}%.`:'Nothing has been audited in this round yet.';
-  $('sign-name').value=(me()||{}).name||''; clearPad('sig-modal');
+  $('sign-name').value=(me()&&!me().shared&&me().name)||''; clearPad('sig-modal');
   $('client-sign').hidden=!client; $('client-name').value=s.clientName||''; clearPad('sig-client');
   $('sign-go').disabled=false;
   openModal('modal-sign');
@@ -2121,6 +2121,7 @@ function renderAdmin(){
   const termRow=t=>{ const st=TERM_STATUS[t.id];
     return `<div class="kv" style="align-items:center"><span><b>${esc(t.name)}</b><br><span class="muted" style="font-size:13px">${st==='ready'?'Set up':st==='empty'?'Not set up yet':st==='blocked'?'Blocked: publish the new rules below first':'Checking'}</span></span><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${st==='empty'?`<button class="btn btn-sm btn-brand" onclick="setupTerminal('${t.id}')">Set up</button>`:st==='blocked'?`<button class="btn btn-sm" onclick="TERM_CHECKED=false;renderAdmin()">Check again</button>`:''}${st==='ready'||st==='empty'?`<button class="btn btn-sm" onclick="setEntryCode('${t.id}')">${TERM_CODE[t.id]?'Change entry code':'Set entry code'}</button>`:''}</span></div><div class="muted" style="font-size:12px;margin:-4px 0 6px">Data-entry page: ${TERM_CODE[t.id]?'<b style="color:var(--pass)">open</b> with its code':'closed until you set a code'}</div>`; };
   $('admin-body').innerHTML=`
+  ${sharedLoginHTML()}
   <h2 class="sec">Users <span class="n">${users.filter(u=>u.active!==false).length} can sign in</span><button class="btn btn-sm" onclick="openUserModal()">Add user</button></h2>
   <div class="list">${users.map(u=>`<div class="row"><div class="ico" aria-hidden="true" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--brand)">${esc(initials(u.name))}</div><div class="main"><div class="t">${esc(u.name)}${u.id===CUR_UID?' <span class="muted" style="font-weight:500">(you)</span>':''}</div><div class="s"><span class="chip chip-internal">${ROLE_LABEL[u.role]||esc(u.role)}</span>${u.active===false?'<span class="chip chip-off">Switched off</span>':''}</div></div><div class="acts"><button class="btn btn-sm" onclick="openUserModal('${u.id}')">Edit</button></div></div>`).join('')}</div>
   <p class="muted" style="font-size:13px;margin-top:6px">Supervisors see their own audits. Managers see everyone's audits and the management report. Only you can change areas, users and settings.</p>
@@ -2700,7 +2701,8 @@ async function sendRoundEmail(id,quiet,toList){
   try{
     let pdf=null, pdfErr=''; try{ pdf=await sessionPdf(s); }catch(e){ pdf=null; pdfErr=(e&&e.message)||'unknown'; }
     const m=await roundEmail(s,!!pdf), pdf64=pdf?await blobToB64(pdf.blob):'';
-    const res=await fetch(set.mailUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:set.emailKey,to:to.join(','),cc:'',subject:m.subject,html:m.html,photos:m.photos,pdf:pdf64,pdfName:pdf?pdf.name:'',fromName:`${TID} Audit`})});
+    let res; try{ res=await fetch(set.mailUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:set.emailKey,to:to.join(','),cc:'',subject:m.subject,html:m.html,photos:m.photos,pdf:pdf64,pdfName:pdf?pdf.name:'',fromName:`${TID} Audit`})}); }
+    catch(netErr){ logAct('Report email: no reply',`${m.subject} to ${to.join(', ')}`); if(!quiet) toast('Google did not reply, but the email has most likely gone. Check the inbox.',true); return 'unsure'; }
     let ok=res.ok, j={}; try{ j=await res.json(); ok=!!j.ok; if(!ok) throw new Error(j.error||'failed'); }catch(e){ if(String(e.message||'').match(/Wrong key|failed|Exception/)) throw e; }
     logAct('Report emailed',`${m.subject} to ${to.join(', ')}${pdf&&j.attached?' (PDF attached)':' (no PDF)'}`);
     if(pdf&&j.v!==2) toast('Email sent, but WITHOUT the PDF: the Google script is the old version. Admin > Report emails: copy the script again and deploy a New version.',true);
@@ -2742,6 +2744,7 @@ async function sendNow(id){
   const {l,bad}=sendList(); if(!l.length){ toast('Add at least one email address',true); return; } if(bad.length){ toast('Check this email: '+bad[0],true); return; }
   $('sd-status').innerHTML='<p class="muted">Sending… making the PDF can take a few seconds.</p>';
   const ok=await sendRoundEmail(id,false,l);
+  if(ok==='unsure'){ $('sd-status').innerHTML=`<p style="font-weight:600;margin-bottom:8px">Google did not send back a reply, but the email has most likely gone. Check your inbox (or ask the manager).</p><button class="btn btn-pass btn-lg btn-full" onclick="markSent('${id}','email','${esc(l.join(', '))}')">It arrived: finish</button><button class="btn btn-lg btn-full" style="margin-top:8px" onclick="sendNow('${id}')">It did not arrive: send again</button>`; return; }
   if(ok) markSent(id,'email',l.join(', ')); else $('sd-status').innerHTML='<p style="color:var(--fail);font-weight:600">Not sent. Try again, or share the PDF instead.</p>';
 }
 async function shareNow(id){
@@ -3050,15 +3053,23 @@ function offerEngEmail(endedAt){
   if(!featOn('featFabricEmail')) return; const m=me();
   const a=ST.audits.find(x=>x.endedAt===endedAt&&(!m||x.auditorId===m.id)); if(!a) return;
   const list=fabricOf(a); if(!list.length) return;
-  $('eg-list').innerHTML=`<div class="list">${list.map(({it,i})=>`<div class="row"><div class="ico" aria-hidden="true">🔧</div><div class="main"><div class="t">${esc(it.name)}</div><div class="s"><span>${esc(fabricReasons(it).join(', '))}</span></div></div>
+  $('eg-list').innerHTML=`<div class="field"><label class="label" for="eg-loc">Location (you can change it)</label><input class="input" id="eg-loc" data-aid="${a.id}" value="${esc(engLoc(a))}"></div><div class="list">${list.map(({it,i})=>`<div class="row"><div class="ico" aria-hidden="true">🔧</div><div class="main"><div class="t">${esc(it.name)}</div><div class="s"><span>${esc(fabricReasons(it).join(', '))}</span></div></div>
     <div class="acts" style="display:flex;flex-direction:column;gap:6px">${it.photoId?`<button class="btn btn-sm btn-brand" onclick="engMail('${a.id}',${i},true)">📧 Outlook + photo</button>`:''}<button class="btn btn-sm" onclick="engMail('${a.id}',${i},false)">✉️ Email${it.photoId?' (no photo)':''}</button></div></div>`).join('')}</div>`;
   setTimeout(()=>openModal('modal-eng'),350);
 }
+function engLoc(a){
+  const term=String(TERM&&TERM.name||TID).replace(/\s+(\d)/,'-$1'), side=(zoneOf(a.zone)||{}).sub||'';
+  let place;
+  if(a.areaType==='toilet'||String(a.areaId||'').startsWith('t_')){ const n=String(a.name||'').split(' — ')[0], p=a.part||String(a.name||'').split(' — ')[1]||''; place=[n,p,/toilet/i.test(p)?'':'toilet'].filter(Boolean).join(' '); }
+  else if(a.loc) place=[a.loc,a.part].filter(Boolean).join(' ');
+  else place=a.name||'';
+  return [term,side,place].filter(Boolean).join(' ');
+}
 function engText(a,it){
-  const set=settings(), loc=a.location||[a.name,'Zone '+a.zone].filter(Boolean).join(', ');
+  const set=settings(), loc=($('eg-loc')&&$('eg-loc').dataset.aid===a.id&&$('eg-loc').value.trim())||engLoc(a);
   const fault=[it.name,fabricReasons(it).join(', '),it.note||''].filter(Boolean).join(' - ');
   const subject=`Fabric fault: ${a.name} - ${fabricReasons(it)[0]||it.name}`;
-  const body=`Hi ${set.engName||'One Eng Team'},\n\nLocation: ${loc}\n\nFault: ${fault}\n\nPlease see the attached picture for your reference.\n\nReported: ${fmtDT(a.endedAt)}\nBy: ${(me()&&me().name)||a.auditorName||''}`;
+  const body=`Hi ${set.engName||'One Eng Team'},\n\nLocation: ${loc}\n\nFault: ${fault}\n\nPlease see the attached picture for your reference.`;
   return {subject,body,to:set.engEmail||''};
 }
 async function engMail(aid,i,withPhoto){
@@ -3090,6 +3101,25 @@ async function viewBeforeAfter(id){
     <div class="g">${fig(before[0]&&before[0].d,'BEFORE')}${fig(after,'AFTER')}</div>${before.slice(1).map(b=>`<div class="g" style="margin-top:10px">${fig(b.d,'BEFORE: '+esc(b.t))}<div></div></div>`).join('')}</body></html>`);
   w.document.close();
 }
+
+// ════════════ v45: shared terminal login (e.g. "Terminal-3", PIN 2222) ════════════
+function deviceId(){ let d=lsGet(LK('t3a_dev')); if(!d){ d=newId('dev'); lsSet(LK('t3a_dev'),d); } return d; }
+function sharedName(){ return String(TERM&&TERM.name||TID).replace(/\s+/g,'-'); }
+function sharedUser(){ return ST.users.find(u=>u.shared); }
+function sharedLoginHTML(){
+  const u=sharedUser(), on=u&&u.active!==false;
+  return `<h2 class="sec">Shared login</h2><div class="panel"><p class="muted" style="font-size:14px;margin-bottom:10px">One login for the whole team: name <b>${esc(u?u.name:sharedName())}</b>, PIN <b>2222</b>. Personal logins still work. Each phone keeps its own audit round.</p>
+    ${!u?`<button class="btn btn-brand" onclick="sharedCreate()">Create ${esc(sharedName())} login</button>`
+      :`<div class="kv"><span>Status</span><b style="color:${on?'var(--pass)':'var(--fail)'}">${on?'On':'Off'}</b></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn ${on?'btn-danger':'btn-brand'}" onclick="sharedToggle()">${on?'Switch off':'Switch on'}</button><button class="btn" onclick="sharedResetPin()">Reset PIN to 2222</button></div>`}</div>`;
+}
+function sharedCreate(){
+  if(!isAdmin()||sharedUser()) return; const name=sharedName();
+  if(ST.users.some(x=>String(x.name).toLowerCase()===name.toLowerCase())){ toast('A user called '+name+' already exists',true); return; }
+  const salt=newId('s'); put('users',{id:newId('usr'),name,role:'supervisor',active:true,shared:true,salt,pinHash:hashPin(salt,'2222'),created:new Date().toISOString()});
+  logAct('Shared login created',name); toast(name+' login created. PIN 2222'); renderAdmin();
+}
+function sharedToggle(){ const u=sharedUser(); if(!isAdmin()||!u) return; const on=u.active===false; put('users',{...u,active:on}); logAct('Shared login '+(on?'switched on':'switched off'),u.name); toast(on?'Shared login on':'Shared login off'); renderAdmin(); }
+function sharedResetPin(){ const u=sharedUser(); if(!isAdmin()||!u) return; const salt=newId('s'); put('users',{...u,salt,pinHash:hashPin(salt,'2222')}); lsSet(LK('t3a_fail_'+u.id),null); logAct('Shared login PIN reset',u.name); toast('PIN reset to 2222'); }
 
 </script>
 </body>
