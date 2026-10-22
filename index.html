@@ -570,6 +570,17 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
     <button class="btn btn-full" style="margin-top:10px" onclick="closeModal('modal-eng')">Done</button>
   </div>
 </div>
+<div class="modal" id="modal-cl">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cl-h">
+    <div class="sheet-h"><h3 id="cl-h">Checklist</h3><button class="x" onclick="closeModal('modal-cl')" aria-label="Close">×</button></div>
+    <p class="muted" id="cl-sub" style="font-size:13px;margin-bottom:8px"></p>
+    <div id="cl-list"></div>
+    <div style="display:flex;gap:6px;margin-top:10px"><input class="input" id="cl-new" placeholder="New check, e.g. Mirrors clean" autocomplete="off" onkeydown="if(event.key==='Enter') clAdd()"><button class="btn btn-brand" onclick="clAdd()">＋ Add</button></div>
+    <label class="switch-row" id="cl-all-wrap" style="margin-top:10px"><input type="checkbox" id="cl-all" checked> <span id="cl-all-txt"></span></label>
+    <button class="btn btn-act btn-lg btn-full" style="margin-top:10px" onclick="clSave()">Save checklist</button>
+    <button class="btn btn-full" id="cl-reset" style="margin-top:8px" onclick="clReset()">Reset to original</button>
+  </div>
+</div>
 <div class="modal" id="modal-fix">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fx-h">
     <div class="sheet-h"><h3 id="fx-h">Correct this round</h3><button class="x" onclick="closeModal('modal-fix')" aria-label="Close">×</button></div>
@@ -608,7 +619,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v46';
+const APP_VERSION='v47';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -835,7 +846,7 @@ function applyFixes(){
   });
 }
 function linkAudits(){
-  applyFixes();
+  applyFixes(); if(typeof applyCL==='function') applyCL();
   const m={}; LAST={};
   ST.audits.forEach(a=>{ (m[a.sessionId]=m[a.sessionId]||[]).push(a); const l=LAST[a.areaId]; if(!l||(a.endedAt||'')>(l.endedAt||'')) LAST[a.areaId]=a; });
   ST.sessions.forEach(s=>{ s.audits=(m[s.id]||[]).sort((x,y)=>(x.endedAt||'').localeCompare(y.endedAt||'')); });
@@ -2147,6 +2158,11 @@ function renderAdmin(){
     <button class="btn btn-brand" onclick="saveSla()">Save targets</button>
     <label class="switch-row" style="margin-top:10px"><input type="checkbox" ${set.faultsNoScore!==false?'checked':''} onchange="saveSettings({faultsNoScore:this.checked});logAct('Fault scoring changed',this.checked?'Faults do not lower the score':'Faults lower the score');toast('Saved')"> Fabric issues (broken, lights, dryers, locks, leaks, signs, tiles and so on) do not lower the cleaning score. Applies to new audits.</label></div>
 
+  <h2 class="sec">Checklists</h2>
+  <div class="panel"><p class="muted" style="font-size:14px;margin-bottom:10px">Add, delete or reorder checklist items. Old audits keep the items they had.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${CL_KEYS().map(k=>`<button class="btn btn-sm" onclick="openCL('type','${encArg(k)}')">${esc(k)} <small style="opacity:.7">${CL_SRC[k].length}</small></button>`).join('')}</div>
+    <div class="field" style="margin-top:12px"><label class="label" for="cl-area-pick">Or one area only</label><select class="input" id="cl-area-pick" onchange="if(this.value) openCL('area',this.value)"><option value="">Choose an area…</option>${ST.areas.slice().sort((a,b)=>a.zone-b.zone||String(a.name).localeCompare(b.name)).map(a=>`<option value="${esc(a.id)}">Zone ${a.zone} · ${esc(a.name)}</option>`).join('')}</select></div></div>
+
   <h2 class="sec">Extra features</h2>
   <div class="panel"><p class="muted" style="margin-bottom:6px;font-size:14px">Switch each one on or off for everyone on ${esc(TERM.name)}.</p>
     ${[['featWatermark','Stamp terminal, area, date and time on photos'],['featShareFaults','📲 Send faults button on reports (WhatsApp / Teams)'],['featLockBtn','🔒 Lock button at the top of the screen'],['featIdleLock','Lock the app after 30 minutes without use'],['featHaptic','Vibrate on Pass / Fail / N/A taps (Android)'],['featQR','🏷️ QR codes (scan button on Home, QR labels for admins)'],['featFabricEmail','🔧 Email fabric faults to the engineering team after each audit']].map(([k,l])=>`<label class="switch-row" style="margin-top:8px"><input type="checkbox" ${set[k]!==false?'checked':''} onchange="setFeature('${k}',this.checked,'${encArg(l)}')"> ${l}</label>`).join('')}
@@ -3151,6 +3167,38 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 setInterval(()=>checkUpdate(false),30*60000);
 // tidy the ?v= from the address bar after an update
 if(/[?&]v=\d+/.test(location.search)) try{ history.replaceState(null,'',location.pathname+location.hash); }catch(e){}
+
+// ════════════ v47: edit checklists from Admin ════════════
+const CL_SRC={'Toilet':TOILET_CHECKLIST,'Gate Room':GATE_CHECKLIST,'Walkway':WALKWAY_CHECKLIST,'Travelator':TRAVELATOR_CHECKLIST,'Escalator':ESCALATOR_CHECKLIST,'Lift':LIFT_CHECKLIST,'Concourse':CONCOURSE_CHECKLIST,'VCC':VCC_CHECKLIST,'Seating Area':IDL_CHECKLIST};
+const CL_ORIG=Object.fromEntries(Object.entries(CL_SRC).map(([k,v])=>[k,[...v]]));
+const CL_KEYS=()=>Object.keys(CL_SRC);
+// Saved lists replace the built-in ones in place, so every screen that uses them picks up the change
+function applyCL(){ const o=(settings().checklists)||{}; Object.entries(CL_SRC).forEach(([k,arr])=>{ const want=Array.isArray(o[k])&&o[k].length?o[k]:CL_ORIG[k]; if(arr.join('\n')!==want.join('\n')) arr.splice(0,arr.length,...want); }); }
+let CLE={mode:'',key:'',items:[]};
+function openCL(mode,enc){
+  if(!isAdmin()) return; const key=mode==='type'?decodeURIComponent(enc):enc;
+  if(mode==='area'){ const a=areaById(key); if(!a) return; CLE={mode,key,items:[...a.items]}; $('cl-h').textContent=a.name; $('cl-sub').textContent=`Only this area. Zone ${a.zone}, ${tierOf(a.tier).name}.`; $('cl-all-wrap').hidden=true; $('cl-reset').hidden=true; }
+  else { CLE={mode,key,items:[...CL_SRC[key]]}; const n=key==='Toilet'?allToilets().length:ST.areas.filter(a=>a.part===key).length;
+    $('cl-h').textContent=key+' checklist'; $('cl-sub').textContent=key==='Toilet'?`Used by every toilet (${n}).`:`Used for new ${key} areas.`;
+    $('cl-all-wrap').hidden=key==='Toilet'||!n; $('cl-all-txt').textContent=`Also update the ${n} existing ${key} ${n===1?'area':'areas'}`; $('cl-all').checked=true; $('cl-reset').hidden=false; }
+  $('cl-new').value=''; renderCL(); openModal('modal-cl'); const p=$('cl-area-pick'); if(p) p.value='';
+}
+function renderCL(){
+  $('cl-list').innerHTML=CLE.items.length?`<div class="list">${CLE.items.map((t,i)=>`<div class="row" style="gap:6px"><span style="font-weight:700;min-width:22px">${i+1}.</span><input class="input" style="flex:1;padding:8px" value="${esc(t)}" onchange="CLE.items[${i}]=this.value.replace(/\\s+/g,' ').trim()"><button class="btn btn-sm" aria-label="Move up" onclick="clMove(${i},-1)" ${i?'':'disabled'}>↑</button><button class="btn btn-sm" aria-label="Move down" onclick="clMove(${i},1)" ${i<CLE.items.length-1?'':'disabled'}>↓</button><button class="btn btn-sm btn-danger" aria-label="Delete" onclick="clDel(${i})">✕</button></div>`).join('')}</div>`:'<p class="muted">No checks yet. Add one below.</p>';
+}
+function clAdd(){ const v=$('cl-new').value.replace(/\s+/g,' ').trim(); if(!v){ $('cl-new').focus(); return; } if(CLE.items.some(x=>x.toLowerCase()===v.toLowerCase())){ toast('That check is already on the list',true); return; } CLE.items.push(v); $('cl-new').value=''; renderCL(); $('cl-new').focus(); }
+function clDel(i){ CLE.items.splice(i,1); renderCL(); }
+function clMove(i,d){ const j=i+d; if(j<0||j>=CLE.items.length) return; [CLE.items[i],CLE.items[j]]=[CLE.items[j],CLE.items[i]]; renderCL(); }
+function clSave(){
+  const items=CLE.items.map(x=>String(x).trim()).filter(Boolean); if(!items.length){ toast('Keep at least one check',true); return; }
+  if(draft&&draft.targetId){ toast('Finish or leave the audit that is open first',true); return; }
+  if(CLE.mode==='area'){ const a=areaById(CLE.key); if(!a) return; put('areas',{...a,items}); logAct('Checklist changed',`${a.name}: ${items.length} checks`); }
+  else { const all={...(settings().checklists||{})}; all[CLE.key]=items; saveSettings({checklists:all}); applyCL();
+    let n=0; if(CLE.key!=='Toilet'&&$('cl-all').checked) ST.areas.filter(a=>a.part===CLE.key).forEach(a=>{ put('areas',{...a,items:[...items]}); n++; });
+    logAct('Checklist changed',`${CLE.key}: ${items.length} checks${n?`, ${n} areas updated`:''}`); }
+  closeModal('modal-cl'); toast('Checklist saved'); renderAdmin();
+}
+function clReset(){ if(CLE.mode!=='type') return; CLE.items=[...CL_ORIG[CLE.key]]; renderCL(); toast('Original list loaded. Tap Save to keep it.'); }
 
 </script>
 </body>
