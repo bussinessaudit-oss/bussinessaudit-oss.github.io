@@ -194,6 +194,7 @@ button:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .mic-btn.rec{background:var(--fail);border-color:var(--fail);color:#fff}
 .annot-cv{width:100%;max-height:58vh;object-fit:contain;background:#111;border-radius:10px;touch-action:none;display:block}
 #annot-cols .on{outline:2px solid var(--ink)}
+.more-ph{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}.more-ph:empty{display:none}.mp{position:relative}.mp img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;display:block}.mp button{position:absolute;top:2px;right:2px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:13px;cursor:pointer}
 .photo-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
 .thumb{width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:8px}
 .savebar{position:sticky;bottom:0;padding:14px 0 2px;background:linear-gradient(rgba(244,242,248,0),var(--paper) 35%)}
@@ -620,7 +621,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v49';
+const APP_VERSION='v51';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -737,6 +738,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 const encArg=s=>encodeURIComponent(s).replace(/'/g,'%27');
 const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const todayStr=()=>{const d=new Date(),off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,10);};
+const photoIdsOf=it=>[it&&it.photoId,...((it&&it.morePhotoIds)||[])].filter(Boolean);
 const pctOf=(p,f)=>(p+f)?Math.round(p/(p+f)*100):0;
 const areaById=id=>ST.areas.find(a=>a.id===id);
 const tierOf=t=>TIERS.find(x=>x.id===t)||{id:t,name:String(t||''),label:String(t||''),c:'var(--muted)',s:'var(--na-soft)',hex:'#6B7280'};
@@ -799,6 +801,8 @@ const KV={db:null,
     return new Promise(res=>{ try{ const tx=KV.db.transaction('kv','readwrite'); tx.objectStore('kv').put(v,k); tx.oncomplete=()=>res(true); tx.onerror=()=>res(false); tx.onabort=()=>res(false); }catch(e){ res(false); } }); },
   del(k){ if(!KV.db){ try{ localStorage.removeItem(KV_LS+k); }catch(e){} return Promise.resolve(true); }
     return new Promise(res=>{ try{ const tx=KV.db.transaction('kv','readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete=()=>res(true); tx.onerror=()=>res(false); }catch(e){ res(false); } }); },
+  keys(){ if(!KV.db){ try{ return Promise.resolve(Object.keys(localStorage).filter(k=>k.startsWith(KV_LS)).map(k=>k.slice(KV_LS.length))); }catch(e){ return Promise.resolve([]); } }
+    return new Promise(res=>{ try{ const q=KV.db.transaction('kv','readonly').objectStore('kv').getAllKeys(); q.onsuccess=()=>res(q.result||[]); q.onerror=()=>res([]); }catch(e){ res([]); } }); },
   clear(){ if(!KV.db) return Promise.resolve(true);
     return new Promise(res=>{ try{ const tx=KV.db.transaction('kv','readwrite'); tx.objectStore('kv').clear(); tx.oncomplete=()=>res(true); tx.onerror=()=>res(false); }catch(e){ res(false); } }); }
 };
@@ -868,7 +872,8 @@ async function persistNow(){
   clearTimeout(persistTimer);
   if(!TERM) return;   // no terminal chosen yet: nothing is loaded, so never overwrite the saved copy
   const snap={}; COLLS.forEach(c=>{ snap[c]=ST[c].map(r=>serialize(c,r)); });
-  const ok=await KV.set('state',snap); await KV.set('meta',META);
+  let ok=await KV.set('state',snap); await KV.set('meta',META);
+  if(!ok&&typeof freeSpace==='function'){ await freeSpace(true); ok=await KV.set('state',snap); await KV.set('meta',META); }
   if(!ok) toast('This phone is out of storage space. Free some space so audits are kept.',true);
 }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') persistNow(); });
@@ -883,7 +888,7 @@ async function getLocalBlob(id){ if(BLOBS.has(id)) return BLOBS.get(id); const v
 async function getBlob(id){
   if(!id) return '';
   const v=await getLocalBlob(id); if(v) return v;
-  if(DB&&ONLINE){ try{ const s=await withTimeout(DB.ref(ROOT+'/blobs/'+id).once('value'),15000); const d=s&&s.val(); if(d){ BLOBS.set(id,d); KV.set('blob:'+id,d); return d; } }catch(e){} }
+  if(DB&&ONLINE){ try{ const s=await withTimeout(DB.ref(ROOT+'/blobs/'+id).once('value'),15000); const d=s&&s.val(); if(d){ BLOBS.set(id,d); return d; } }catch(e){} }
   return '';
 }
 const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
@@ -1073,7 +1078,7 @@ async function flush(){
       try{
       if(o.coll==='blobs'){
         const d=await getLocalBlob(o.id);
-        if(d){ await DB.ref(ROOT+'/blobs/'+o.id).set(d); await DB.ref(ROOT+'/blobIndex/'+o.id).set(d.length); }
+        if(d){ await DB.ref(ROOT+'/blobs/'+o.id).set(d); await DB.ref(ROOT+'/blobIndex/'+o.id).set(d.length); KV.del('blob:'+o.id); }
       } else if(o.del){
         await DB.ref(ROOT+'/'+o.coll+'/'+o.id).remove();
         await DB.ref(ROOT+'/tomb/'+o.coll+'/'+o.id).set(TS);
@@ -1690,6 +1695,7 @@ function renderAuditItems(){
         <div class="label" style="margin-top:12px">Photo</div>
         <div class="photo-row"><label class="btn btn-sm${!r.photo&&!r.noPhoto?' btn-brand':''}"><input type="file" id="ph-${i}" accept="image/*" capture="environment" hidden onchange="setPhoto(${i},this)">${r.photo?'Retake photo':'📷 Take photo'}</label>${r.photo?`<button type="button" class="btn btn-sm" onclick="openAnnot(${i})">✏️ Mark up${r.marked?' again':''}</button><button type="button" class="btn btn-sm btn-danger" onclick="removePhoto(${i})">Remove photo</button>`:r.noPhoto?'<span style="font-weight:600;color:var(--muted);align-self:center">No photo (not applicable)</span>':`<button type="button" class="btn btn-sm" onclick="setNoPhoto(${i})">No photo</button>`}</div>
         ${r.photo?`<img class="thumb" src="${r.photo}" alt="Photo for item ${i+1}">`:''}
+        ${r.photo?`<div class="more-ph">${(r.more||[]).map((p,k)=>`<div class="mp"><img src="${p}" alt="Extra photo ${k+2}"><button type="button" aria-label="Remove photo ${k+2}" onclick="removeMore(${i},${k})">✕</button></div>`).join('')}</div>${(r.more||[]).length<MORE_MAX?`<label class="btn btn-sm" style="margin-top:8px"><input type="file" id="ph2-${i}" accept="image/*" multiple hidden onchange="addMorePhotos(${i},this)">＋ Add more photos (${1+(r.more||[]).length} of ${MORE_MAX+1})</label>`:''}`:''}
       </div>`:''}</div>`;
   }).join('');
   const total=tg.items.length, done=Object.values(draft.results).filter(r=>r&&r.status).length;
@@ -1719,7 +1725,7 @@ const isFaultItem=it=>it&&it.status==='fail'&&(it.fault||false);
 function reasonTxt(it){ const r=(it.reasons||[]).join(', '); return [r,it.note||''].filter(Boolean).join('. ')||'Fail'; }
 function setStatus(i,status){ buzz(status==='fail'?[40,30,40]:15); draft.results[i]={...(draft.results[i]||{}),status}; renderAuditItems(); saveDraft(); }
 function setNote(i,v){ draft.results[i]={...(draft.results[i]||{}),note:v}; saveDraft(); }
-function removePhoto(i){ draft.results[i]={...(draft.results[i]||{}),photo:''}; renderAuditItems(); saveDraft(); }
+function removePhoto(i){ draft.results[i]={...(draft.results[i]||{}),photo:'',more:[]}; renderAuditItems(); saveDraft(); }
 function setPhoto(i,input){
   const f=input.files&&input.files[0]; if(!f) return;
   if(!f.type.startsWith('image/')){ toast('Choose an image file',true); input.value=''; return; }
@@ -1730,10 +1736,10 @@ function setPhoto(i,input){
     const img=new Image();
     img.onerror=()=>toast('Could not open that photo',true);
     img.onload=()=>{
-      const max=1280, scale=Math.min(1,max/Math.max(img.width,img.height));
+      const max=1024, scale=Math.min(1,max/Math.max(img.width,img.height));
       const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*scale)); c.height=Math.max(1,Math.round(img.height*scale));
       c.getContext('2d').drawImage(img,0,0,c.width,c.height); { const tg=targetById(draft.targetId); stampPhoto(c,tg?tg.name:'Audit'); }
-      draft.results[i]={...(draft.results[i]||{}),photo:c.toDataURL('image/jpeg',.78),noPhoto:false};
+      draft.results[i]={...(draft.results[i]||{}),photo:c.toDataURL('image/jpeg',.72),noPhoto:false};
       renderAuditItems(); saveDraft(true); toast('Photo added');
     };
     img.src=e.target.result;
@@ -1752,6 +1758,7 @@ async function saveAudit(){
     if(r.status==='pass') pass++; else if(fault) faults++; else if(isFail) fail++; else if(r.status==='na') na++;
     const photoId=r.photo&&isFail?await putBlob(r.photo):'';
     const it={name:tg.items[i],status:r.status||'none',note:isFail?(r.note||''):'',photoId};
+    if(photoId&&(r.more||[]).length){ const ids=[]; for(const p of r.more) ids.push(await putBlob(p)); it.morePhotoIds=ids; }
     if(reasons.length) it.reasons=reasons; if(fault) it.fault=true; if(isFail&&!r.photo) it.noPhoto=true;
     items.push(it);
   }
@@ -1950,13 +1957,13 @@ function renderFabric(){
 async function viewPhoto(id){ const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups for this site',true); return; } const d=await getBlob(id); w.document.write(d?`<img src="${d}" style="max-width:100%">`:'<p style="font-family:Arial">Photo not available.</p>'); }
 async function fabricReportHTML(){
   const list=fabricList(), set=settings(), [lm,lh]=await Promise.all([getBlob(set.logoMitie),getBlob(set.logoHeathrow)]), ph={};
-  await Promise.all(list.filter(f=>f.it.photoId).map(async f=>{ ph[f.it.photoId]=await getBlob(f.it.photoId); }));
+  await Promise.all(list.flatMap(f=>photoIdsOf(f.it).map(async id=>{ ph[id]=await getBlob(id); })));
   const map={}; list.forEach(f=>fabricReasons(f.it).forEach(x=>{ map[x]=(map[x]||0)+1; }));
   const range=filterSummary();
   return `<!doctype html><html><head><meta charset="utf-8"><title>${TID} Fabric Issues</title><style>${REPORT_CSS}${CHART_CSS}</style></head><body>
   ${bandHTML('Fabric Issues Report',`Heathrow ${TERM.name}${range?', '+range:''}`,'#8A5300',lh,lm)}
   ${chCard('Most common fabric issues',`${list.length} found`,chReasons(Object.entries(map).sort((a,b)=>b[1]-a[1])))}
-  <h2>All fabric issues (${list.length})</h2><table><tr><th>Date</th><th>Location</th><th>Check</th><th>Issue</th></tr>${list.map(f=>`<tr><td>${fmtDT(f.a.endedAt)}</td><td>${esc(f.a.name)}<br><span style="color:#6B6380">Zone ${f.a.zone}, ${esc(tierOf(f.a.tier).name)}</span></td><td>${esc(f.it.name)}</td><td><b>${esc(fabricReasons(f.it).join(', '))}</b>${f.it.note?'. '+esc(f.it.note):''}${ph[f.it.photoId]?`<br><img class="ph" src="${ph[f.it.photoId]}" alt="">`:''}</td></tr>`).join('')}</table>
+  <h2>All fabric issues (${list.length})</h2><table><tr><th>Date</th><th>Location</th><th>Check</th><th>Issue</th></tr>${list.map(f=>`<tr><td>${fmtDT(f.a.endedAt)}</td><td>${esc(f.a.name)}<br><span style="color:#6B6380">Zone ${f.a.zone}, ${esc(tierOf(f.a.tier).name)}</span></td><td>${esc(f.it.name)}</td><td><b>${esc(fabricReasons(f.it).join(', '))}</b>${f.it.note?'. '+esc(f.it.note):''}${photoIdsOf(f.it).filter(id=>ph[id]).map((id,k)=>`${k?' ':'<br>'}<img class="ph" src="${ph[id]}" alt="">`).join('')}</td></tr>`).join('')}</table>
   </body></html>`;
 }
 async function printFabricReport(){
@@ -2045,8 +2052,9 @@ async function sessionReportHTML(s){
   linkAudits();
   const set=settings(), client=sessionMode(s)==='client', st=sessionStats(s), audits=s.audits||[];
   const [sig,csig,lm,lh]=await Promise.all([s.sigId?getBlob(s.sigId):Promise.resolve(s.sig||''),s.clientSigId?getBlob(s.clientSigId):Promise.resolve(s.clientSig||''),getBlob(set.logoMitie),getBlob(set.logoHeathrow)]);
-  const photos={}; await Promise.all(audits.flatMap(a=>a.items.filter(it=>it.photoId).map(async it=>{ photos[it.photoId]=await getBlob(it.photoId); })));
+  const photos={}; await Promise.all(audits.flatMap(a=>a.items.flatMap(it=>photoIdsOf(it).map(async id=>{ photos[id]=await getBlob(id); }))));
   const photoOf=it=>it.photoId?photos[it.photoId]:(it.photo||'');
+  const photosOf=it=>it.photoId?photoIdsOf(it).map(id=>photos[id]).filter(Boolean):(it.photo?[it.photo]:[]);
   const zones=[...new Set(audits.map(a=>'Zone '+a.zone))].join(', ')||'-';
   const durMs=s.end?new Date(s.end)-new Date(s.start):0;
   const fails=[]; audits.forEach(a=>a.items.forEach(it=>{ if(it.status==='fail') fails.push({a,it}); }));
@@ -2073,7 +2081,7 @@ async function sessionReportHTML(s){
     <div style="margin-top:12px">${chCard('Overall result','Share of all checks in this round',ringRow)}</div>
     <div class="chgrid" style="margin-top:12px">${chCard('Score by area type',`Target ${slaFor()}%`,chArrows(byKind.map(x=>({label:x.name,pct:x.pct,n:1})),true))}${chCard('Locations, weakest first',`Target ${slaFor()}%`,chArrows(locs.slice(0,10).map(x=>({label:x.name,pct:x.p,n:1})),true))}</div>`; })()}
   ${(()=>{ const cl=fails.filter(f=>isCleanIssue(f.it)), fb=fails.filter(f=>isFabricIssue(f.it));
-    const row=(f,list)=>`<tr><td>${fmtTime(f.a.endedAt)}</td><td>${esc(f.a.name)}</td><td>${esc(f.it.name)}</td><td>${esc([list.join(', '),f.it.note||''].filter(Boolean).join('. ')||'Fail')}${photoOf(f.it)?`<br><img class="ph" src="${photoOf(f.it)}" alt="">`:''}</td></tr>`;
+    const row=(f,list)=>`<tr><td>${fmtTime(f.a.endedAt)}</td><td>${esc(f.a.name)}</td><td>${esc(f.it.name)}</td><td>${esc([list.join(', '),f.it.note||''].filter(Boolean).join('. ')||'Fail')}${photosOf(f.it).length?'<br>'+photosOf(f.it).map(p=>`<img class="ph" src="${p}" alt="">`).join(' '):''}</td></tr>`;
     const head='<tr><th>Time</th><th>Location</th><th>Check</th><th>What is wrong</th></tr>';
     return `<h2>Cleaning issues (${cl.length})</h2>${cl.length?`<table>${head}${cl.map(f=>row(f,cleanReasons(f.it))).join('')}</table>`:'<p>No cleaning issues recorded.</p>'}
     <h2>Fabric issues (${fb.length})</h2>${fb.length?`<p style="color:#6B6380;margin:0 0 6px">Building and maintenance problems to raise with Heathrow maintenance.</p><table>${head}${fb.map(f=>row(f,fabricReasons(f.it))).join('')}</table>`:'<p>No fabric issues recorded.</p>'}`; })()}
@@ -2352,7 +2360,7 @@ function saveUser(){
 async function exportBackup(){
   toast('Preparing the backup');
   const ids=new Set(); ST.sessions.forEach(s=>{ if(s.sigId) ids.add(s.sigId); if(s.clientSigId) ids.add(s.clientSigId); });
-  ST.audits.forEach(a=>a.items.forEach(it=>{ if(it.photoId) ids.add(it.photoId); }));
+  ST.audits.forEach(a=>a.items.forEach(it=>{ photoIdsOf(it).forEach(id=>ids.add(id)); }));
   const set=settings(); [set.logoMitie,set.logoHeathrow].forEach(x=>{ if(x) ids.add(x); });
   const blobs={}; for(const id of ids){ const d=await getBlob(id); if(d) blobs[id]=d; }
   const data={app:'T3 Audit',terminal:TID,version:2,exportedAt:new Date().toISOString()}; COLLS.forEach(c=>{ data[c]=ST[c].map(r=>serialize(c,r)); }); data.blobs=blobs;
@@ -2392,7 +2400,7 @@ function renderAccount(){
   const m=me(); if(!m) return;
   $('account-body').innerHTML=`<div class="panel" style="margin-top:12px"><div style="display:flex;align-items:center;gap:12px"><div class="ico" aria-hidden="true" style="width:50px;height:50px;border-radius:50%;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:21px;color:var(--brand)">${esc(initials(m.name))}</div><div><div style="font-weight:700;font-size:18px">${esc(m.name)}</div><span class="chip chip-internal">${ROLE_LABEL[m.role]||esc(m.role)}</span></div></div></div>
   <div class="panel"><div class="kv"><span>Connection</span><span>${!DB?'Not connected':ONLINE?'Online':'Offline'}</span></div><div class="kv"><span>Waiting to upload</span><span>${pendingCount()}</span></div><div class="kv"><span>Last synced</span><span>${META.lastOk?fmtDT(META.lastOk):'Not yet'}</span></div><div class="kv"><span>App version</span><span>${APP_VERSION}</span></div></div>
-  <div style="display:grid;gap:10px;margin-top:12px"><button class="btn btn-lg btn-brand" onclick="checkUpdate(true)">🔄 Check for update (now ${APP_VERSION})</button><button class="btn btn-lg" onclick="openPinModal('change','${m.id}')">Change my PIN</button><button class="btn btn-lg" onclick="switchTerminal()">Change terminal (now ${esc(TERM.name)})</button><button class="btn btn-lg btn-danger" onclick="confirmSignOut()">Sign out</button></div>
+  <div style="display:grid;gap:10px;margin-top:12px"><button class="btn btn-lg" onclick="freeSpace(false)">🧹 Free up space on this phone</button><button class="btn btn-lg btn-brand" onclick="checkUpdate(true)">🔄 Check for update (now ${APP_VERSION})</button><button class="btn btn-lg" onclick="openPinModal('change','${m.id}')">Change my PIN</button><button class="btn btn-lg" onclick="switchTerminal()">Change terminal (now ${esc(TERM.name)})</button><button class="btn btn-lg btn-danger" onclick="confirmSignOut()">Sign out</button></div>
   <p class="muted" style="margin-top:14px;font-size:13px">To put the app on your home screen, open the browser menu and choose Add to Home screen.</p>`;
 }
 
@@ -2685,7 +2693,7 @@ async function roundEmail(s,noPhotos){
   linkAudits();
   const st=sessionStats(s), client=sessionMode(s)==='client', audits=s.audits||[], sla=slaFor(), col=st.pct>=sla?'#0F7B55':st.pct>=sla-15?'#B26A00':'#C62828';
   const fails=[]; audits.forEach(a=>a.items.forEach(it=>{ if(it.status==='fail') fails.push({a,it}); }));
-  const photos=[]; if(!noPhotos) for(const f of fails){ if(photos.length>=10) break; if(f.it.photoId){ const d=await getBlob(f.it.photoId); if(d){ f.cid='p'+photos.length; photos.push(d); } } }
+  const photos=[]; if(!noPhotos) for(const f of fails){ if(photos.length>=10) break; f.cids=[]; for(const id of photoIdsOf(f.it)){ if(photos.length>=12) break; const d=await getBlob(id); if(d){ f.cids.push('p'+photos.length); photos.push(d); } } }
   const byKind=groupScores(audits,auditAreaType,k=>KIND_LABEL[k]||k);
   const td='padding:6px 8px;border-bottom:1px solid #E4DEEE;font-size:13px;vertical-align:top';
   const title=`${client?'Client':'Internal'} Audit Report`;
@@ -2699,7 +2707,7 @@ async function roundEmail(s,noPhotos){
    <tr><td style="${td};color:#6B6380">Score</td><td style="${td}"><b style="font-size:18px;color:${col}">${st.pct}%</b> (target ${sla}%). Pass ${st.pass}, Fail ${st.fail}, N/A ${st.na}</td></tr></table>
   ${byKind.length?`<div style="font-weight:bold;color:#4B2482;margin:16px 0 6px">By area type</div><table style="width:100%;border-collapse:collapse">${byKind.map(x=>`<tr><td style="${td}">${esc(x.name)}</td><td style="${td};text-align:right"><b style="color:${x.pct>=sla?'#0F7B55':'#C62828'}">${x.pct}%</b></td></tr>`).join('')}</table>`:''}
   ${[['Cleaning issues',fails.filter(f=>isCleanIssue(f.it)),cleanReasons],['Fabric issues',fails.filter(f=>isFabricIssue(f.it)),fabricReasons]].map(([lbl,list,fn])=>`<div style="font-weight:bold;color:#4B2482;margin:16px 0 6px">${lbl} (${list.length})</div>
-  ${list.length?`<table style="width:100%;border-collapse:collapse"><tr><th style="${td};text-align:left;background:#F4F2F8">Location</th><th style="${td};text-align:left;background:#F4F2F8">Check</th><th style="${td};text-align:left;background:#F4F2F8">What is wrong</th></tr>${list.map(({a,it,cid})=>`<tr><td style="${td}">${esc(a.name)}</td><td style="${td}">${esc(it.name)}</td><td style="${td}">${esc([fn(it).join(', '),it.note||''].filter(Boolean).join('. ')||'Fail')}${cid&&!noPhotos?`<br><img src="cid:${cid}" alt="" style="width:200px;border-radius:4px;margin-top:4px">`:''}</td></tr>`).join('')}</table>`:`<p style="font-size:13px">None recorded.</p>`}`).join('')}
+  ${list.length?`<table style="width:100%;border-collapse:collapse"><tr><th style="${td};text-align:left;background:#F4F2F8">Location</th><th style="${td};text-align:left;background:#F4F2F8">Check</th><th style="${td};text-align:left;background:#F4F2F8">What is wrong</th></tr>${list.map(({a,it,cids})=>`<tr><td style="${td}">${esc(a.name)}</td><td style="${td}">${esc(it.name)}</td><td style="${td}">${esc([fn(it).join(', '),it.note||''].filter(Boolean).join('. ')||'Fail')}${cids&&cids.length&&!noPhotos?'<br>'+cids.map(c=>`<img src="cid:${c}" alt="" style="width:200px;border-radius:4px;margin:4px 4px 0 0">`).join(''):''}</td></tr>`).join('')}</table>`:`<p style="font-size:13px">None recorded.</p>`}`).join('')}
   ${audits.some(a=>a.notes)?`<div style="font-weight:bold;color:#4B2482;margin:16px 0 6px">Notes</div>${audits.filter(a=>a.notes).map(a=>`<p style="font-size:13px;margin:4px 0"><b>${esc(a.name)}:</b> ${esc(a.notes)}</p>`).join('')}`:''}
   <p style="font-size:12px;color:#6B6380;margin-top:18px">${noPhotos?'The full report with photos and signatures is attached as a PDF.':'The full report with signatures is in the audit app under Reports.'}</p></div>`;
   const subject=`${title}: ${TERM.name}, ${fmtDate(s.start)}, ${st.pct}%${st.fail?`, ${st.fail} failed`:''}`;
@@ -2842,6 +2850,7 @@ async function healthHTML(){
     ${row('Photos stored',photos)}
     ${est?row('Space used on this phone',`${mb(est.usage||0)} of ${mb(est.quota||0)}`,(est.usage||0)>(est.quota||1)*0.8):''}
     ${row('App version',APP_VERSION)}
+    <button class="btn btn-sm" style="margin-top:6px" onclick="freeSpace(false)">🧹 Free up space on this phone</button>
     <h3 style="font-size:16px;margin:12px 0 4px">Errors on this phone (${errs.length})</h3>
     ${errs.length?errs.slice(0,10).map(e=>`<div class="kv" style="display:block;font-size:13px"><b>${fmtDT(e.at)}</b> ${esc(e.m)} <span class="muted">${esc(e.v||'')}</span></div>`).join('')+'<button class="btn btn-sm" style="margin-top:6px" onclick="lsSet(ERR_KEY,null);renderAdmin()">Clear errors</button>':'<p class="muted" style="font-size:13px">No errors recorded.</p>'}`;
 }
@@ -3017,12 +3026,12 @@ function openResolve(id){
   $('rs-aid').value=id; $('rs-owner').value=''; $('rs-note').value=''; $('rs-thumb').hidden=true; $('rs-thumb').removeAttribute('src');
   const fails=(a.items||[]).filter(it=>it.status==='fail');
   $('rs-info').innerHTML=`<b>${esc(a.name)}</b><br>${fails.map(it=>esc(it.name)+(it.reasons&&it.reasons.length?' ('+esc(it.reasons.join(', '))+')':'')).join('<br>')}<div id="rs-before" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>`;
-  fails.filter(it=>it.photoId).forEach(async it=>{ const d=await getBlob(it.photoId); if(d&&$('rs-before')) $('rs-before').insertAdjacentHTML('beforeend',`<figure style="margin:0;width:48%"><img src="${d}" style="width:100%;border-radius:8px" alt="Before"><figcaption style="font-size:12px;font-weight:700">BEFORE</figcaption></figure>`); });
+  fails.flatMap(it=>photoIdsOf(it)).forEach(async pid=>{ const d=await getBlob(pid); if(d&&$('rs-before')) $('rs-before').insertAdjacentHTML('beforeend',`<figure style="margin:0;width:48%"><img src="${d}" style="width:100%;border-radius:8px" alt="Before"><figcaption style="font-size:12px;font-weight:700">BEFORE</figcaption></figure>`); });
   openModal('modal-resolve');
 }
 function setResolvePhoto(input){
   const f=input.files&&input.files[0]; if(!f||!f.type.startsWith('image/')) return;
-  const rd=new FileReader(); rd.onload=e=>{ const img=new Image(); img.onload=()=>{ const s=Math.min(1,1280/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); { const a=ST.audits.find(x=>x.id===$('rs-aid').value); stampPhoto(c,'After: '+(a?a.name:'')); } RS_PHOTO=c.toDataURL('image/jpeg',.78); $('rs-thumb').src=RS_PHOTO; $('rs-thumb').hidden=false; }; img.src=e.target.result; }; rd.readAsDataURL(f);
+  const rd=new FileReader(); rd.onload=e=>{ const img=new Image(); img.onload=()=>{ const s=Math.min(1,1024/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); { const a=ST.audits.find(x=>x.id===$('rs-aid').value); stampPhoto(c,'After: '+(a?a.name:'')); } RS_PHOTO=c.toDataURL('image/jpeg',.72); $('rs-thumb').src=RS_PHOTO; $('rs-thumb').hidden=false; }; img.src=e.target.result; }; rd.readAsDataURL(f);
 }
 async function saveResolution(){
   const id=$('rs-aid').value, a=ST.audits.find(x=>x.id===id); if(!a) return;
@@ -3096,11 +3105,11 @@ async function engMail(aid,i,withPhoto){
   const a=ST.audits.find(x=>x.id===aid), it=a&&(a.items||[])[i]; if(!it) return;
   const t=engText(a,it);
   if(withPhoto&&it.photoId){
-    const d=await getBlob(it.photoId);
-    if(d){ const blob=await (await fetch(d)).blob(), file=new File([blob],`fault-${String(a.name).replace(/[^\w]+/g,'-').slice(0,40)}.jpg`,{type:'image/jpeg'});
+    const ds=(await Promise.all(photoIdsOf(it).map(getBlob))).filter(Boolean), d=ds[0];
+    if(d){ const base=`fault-${String(a.name).replace(/[^\w]+/g,'-').slice(0,40)}`, files=[]; for(let k=0;k<ds.length;k++){ const blob=await (await fetch(ds[k])).blob(); files.push(new File([blob],`${base}${k?'-'+(k+1):''}.jpg`,{type:'image/jpeg'})); } const file=files[0];
       try{ if(t.to) await navigator.clipboard.writeText(t.to); }catch(e){}
-      if(navigator.canShare&&navigator.canShare({files:[file]})){
-        try{ await navigator.share({files:[file],title:t.subject,text:t.body}); logAct('Fabric fault emailed',`${a.name}: ${it.name}`); if(t.to) toast('Eng email copied: paste it in To'); return; }
+      if(navigator.canShare&&navigator.canShare({files})){
+        try{ await navigator.share({files,title:t.subject,text:t.body}); logAct('Fabric fault emailed',`${a.name}: ${it.name}`); if(t.to) toast('Eng email copied: paste it in To'); return; }
         catch(e){ if(e&&e.name==='AbortError') return; }
       }
       saveBlob(file,file.name); toast('Photo downloaded. Attach it to the email.');
@@ -3112,7 +3121,7 @@ async function engMail(aid,i,withPhoto){
 async function viewBeforeAfter(id){
   const a=ST.audits.find(x=>x.id===id); if(!a) return; const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups for this site',true); return; }
   const fails=(a.items||[]).filter(it=>it.status==='fail'), before=[];
-  for(const it of fails) if(it.photoId){ const d=await getBlob(it.photoId); if(d) before.push({d,t:it.name}); }
+  for(const it of fails) for(const pid of photoIdsOf(it)){ const d=await getBlob(pid); if(d) before.push({d,t:it.name}); }
   const after=a.resolvePhotoId?await getBlob(a.resolvePhotoId):'';
   const fig=(src,cap)=>src?`<figure><img src="${src}"><figcaption>${cap}</figcaption></figure>`:`<figure class="none"><div>No photo</div><figcaption>${cap}</figcaption></figure>`;
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Before and After</title><style>body{font-family:Arial,sans-serif;margin:14px;color:#1D1530}h1{font-size:20px;margin:0 0 4px}.s{color:#555;font-size:13px;margin-bottom:12px}.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}figure{margin:0}img{width:100%;border-radius:8px}figcaption{font-weight:700;margin-top:4px}.none div{height:140px;border:2px dashed #bbb;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#888}.ok{background:#E2F4EB;color:#0F7B55;padding:8px 10px;border-radius:8px;margin:12px 0;font-weight:600}@media print{button{display:none}}</style></head><body>
@@ -3327,6 +3336,38 @@ function monthlyAdminHTML(){
     <div class="field" style="margin-top:10px"><label class="label" for="mo-month">Month</label><select class="input" id="mo-month">${opts.join('')}</select></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-act" onclick="sendMonthly($('mo-month').value,false)">📧 Send now</button><button class="btn" onclick="previewMonthly()">Preview</button><button class="btn" onclick="downloadMonthlyExcel()">Download Excel</button></div></div>`;
 }
+
+// ════════════ v50: keep phone storage small ════════════
+// Photos already safe in the cloud are removed from the phone (they load from the cloud when needed).
+// Photos still waiting to upload, and the audit in progress, are never removed.
+async function freeSpace(quiet){
+  let n=0;
+  try{
+    if(!DB||!ONLINE||!CLOUD_LOADED||META.legacyIds){ if(!quiet) toast('Connect to the internet first, so photos can be checked in the cloud.',true); return 0; }
+    // only remove photos the cloud confirms it has
+    const idx=(await withTimeout(DB.ref(ROOT+'/blobIndex').once('value'),20000)).val()||{};
+    const keys=await KV.keys();
+    for(const k of keys){ if(typeof k!=='string'||!k.startsWith('blob:')) continue; const id=k.slice(5); if(META.outbox['blobs/'+id]||!idx[id]) continue; await KV.del(k); n++; }
+    for(const id in PDF_CACHE) delete PDF_CACHE[id];
+  }catch(e){}
+  if(!quiet){ let txt=''; try{ const est=navigator.storage&&navigator.storage.estimate?await navigator.storage.estimate():null; if(est) txt=` Now using ${Math.round((est.usage||0)/1048576)} MB.`; }catch(e){} toast(n?`Freed ${n} ${n===1?'photo':'photos'} already saved in the cloud.${txt}`:`Nothing to free.${txt}`); if(document.querySelector('#pg-admin.active')) renderAdmin(); }
+  return n;
+}
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
+setTimeout(()=>{ freeSpace(true); },20000);
+
+// ════════════ v51: more than one photo per failed check ════════════
+const MORE_MAX=4;   // 1 main photo + up to 4 more
+function resizePhoto(file,label){ return new Promise((res,rej)=>{ if(!file||!file.type.startsWith('image/')) return rej(new Error('Not an image')); const rd=new FileReader(); rd.onerror=()=>rej(new Error('Could not read the photo'));
+  rd.onload=e=>{ const img=new Image(); img.onerror=()=>rej(new Error('Could not open the photo')); img.onload=()=>{ const s=Math.min(1,1024/Math.max(img.width,img.height)), c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*s)); c.height=Math.max(1,Math.round(img.height*s)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); stampPhoto(c,label); res(c.toDataURL('image/jpeg',.72)); }; img.src=e.target.result; }; rd.readAsDataURL(file); }); }
+async function addMorePhotos(i,input){
+  const files=[...(input.files||[])]; input.value=''; if(!files.length) return;
+  const r=draft.results[i]||{}, more=[...(r.more||[])], room=MORE_MAX-more.length, tg=targetById(draft.targetId);
+  if(files.length>room) toast(`Only ${room} more ${room===1?'photo fits':'photos fit'} on this check`,true);
+  for(const f of files.slice(0,room)){ try{ more.push(await resizePhoto(f,tg?tg.name:'Audit')); }catch(e){ toast(e.message,true); } }
+  draft.results[i]={...(draft.results[i]||{}),more}; renderAuditItems(); saveDraft(true); toast(`${1+more.length} photos on this check`);
+}
+function removeMore(i,k){ const r=draft.results[i]||{}, more=[...(r.more||[])]; more.splice(k,1); draft.results[i]={...r,more}; renderAuditItems(); saveDraft(); }
 
 </script>
 </body>
