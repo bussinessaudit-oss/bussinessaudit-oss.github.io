@@ -639,7 +639,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v54';
+const APP_VERSION='v55';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -2100,7 +2100,8 @@ async function sessionReportHTML(s){
     <tr><td>Mitie supervisor</td><td>${esc(s.auditor||s.ownerName||'-')}</td></tr>
     ${client?`<tr><td>Client representative</td><td>${esc(s.clientName||'-')}${s.clientOrg?', '+esc(s.clientOrg):''}</td></tr>`:''}
     <tr><td>Zones covered</td><td>${esc(zones)}</td></tr>
-    <tr><td>Areas audited</td><td>${audits.length}</td></tr></table>
+    <tr><td>Areas audited</td><td><b>${audits.length}</b>${tierCountTxt(audits)?' ('+tierCountTxt(audits)+')':''}</td></tr></table>
+  ${tierTableHTML(audits,'pdf')}
   <h2>Overall result</h2><div class="tiles"><div class="tile"><b style="color:${pctHex(st.pct)}">${st.pct}%</b><span>Score (target ${slaFor()}%)</span></div><div class="tile"><b>${st.pass}</b><span>Pass</span></div><div class="tile"><b style="color:#C62828">${st.fail}</b><span>Fail</span></div><div class="tile"><b>${st.na}</b><span>N/A</span></div><div class="tile"><b>${audits.reduce((n,a)=>n+a.items.length,0)}</b><span>Checks</span></div></div>
   ${(()=>{ const rmap={}; let faults=0; audits.forEach(a=>a.items.forEach(it=>{ if(it.status!=='fail') return; if(isFaultItem(it)) faults++; (it.reasons||[]).forEach(x=>{ if(!FAULT_REASONS.has(x)) rmap[x]=(rmap[x]||0)+1; }); }));
     const checks=st.pass+st.fail+st.na, ringRow=`<div class="crings">${chRing(st.pct,SCORE_CH,'Score',`Target ${slaFor()}%`)}${chRing(checks?Math.round(st.pass/checks*100):0,'#0F7B55','Passed',`${st.pass} ${st.pass===1?'check':'checks'}`)}${chRing(checks?Math.round(st.fail/checks*100):0,'#C62828','Failed',`${st.fail} ${st.fail===1?'check':'checks'}`)}${chRing(checks?Math.round(st.na/checks*100):0,'#6B7280','N/A',`${st.na} ${st.na===1?'check':'checks'}`)}</div>`;
@@ -2132,7 +2133,7 @@ async function shareSession(id){
   const fails=[]; (s.audits||[]).forEach(a=>a.items.forEach(it=>{ if(it.status==='fail') fails.push(`- ${a.name}: ${it.name} (${reasonTxt(it)})${isFaultItem(it)?' [maintenance fault]':''}`); }));
   const text=`${client?'CLIENT AUDIT':'INTERNAL AUDIT'}, Heathrow ${TID}, ${fmtDT(s.start)}
 Supervisor: ${s.auditor||s.ownerName||''}${client&&s.clientName?`\nClient rep: ${s.clientName}${s.clientOrg?', '+s.clientOrg:''}`:''}
-Areas audited: ${st.audits}. Score: ${st.pct}% (target ${slaFor()}%). Failures: ${st.failures}.
+Areas audited: ${st.audits}${tierCountTxt(s.audits||[])?' ('+tierCountTxt(s.audits||[])+')':''}. Score: ${st.pct}% (target ${slaFor()}%). Failures: ${st.failures}.
 ${fails.length?'Failed checks:\n'+fails.join('\n'):'No failed checks.'}
 Full report: open ${TID} Audit and tap Report.`;
   if(navigator.share){ try{ await navigator.share({title:client?'Client audit':'Internal audit',text}); return; }catch(e){ if(e&&e.name==='AbortError') return; } }
@@ -2738,8 +2739,9 @@ async function roundEmail(s,noPhotos){
    <tr><td style="${td};color:#6B6380;width:40%">Date</td><td style="${td}">${fmtDate(s.start)}, ${fmtTime(s.start)} to ${s.end?fmtTime(s.end):'-'}</td></tr>
    <tr><td style="${td};color:#6B6380">Mitie supervisor</td><td style="${td}">${esc(s.auditor||s.ownerName||'-')}</td></tr>
    ${client?`<tr><td style="${td};color:#6B6380">Client representative</td><td style="${td}">${esc(s.clientName||'-')}${s.clientOrg?', '+esc(s.clientOrg):''}</td></tr>`:''}
-   <tr><td style="${td};color:#6B6380">Areas audited</td><td style="${td}">${st.audits}</td></tr>
+   <tr><td style="${td};color:#6B6380">Areas audited</td><td style="${td}"><b>${st.audits}</b>${tierCountTxt(audits)?' ('+tierCountTxt(audits)+')':''}</td></tr>
    <tr><td style="${td};color:#6B6380">Score</td><td style="${td}"><b style="font-size:18px;color:${col}">${st.pct}%</b> (target ${sla}%). Pass ${st.pass}, Fail ${st.fail}, N/A ${st.na}</td></tr></table>
+  ${tierTableHTML(audits,'email')}
   ${byKind.length?`<div style="font-weight:bold;color:#4B2482;margin:16px 0 6px">By area type</div><table style="width:100%;border-collapse:collapse">${byKind.map(x=>`<tr><td style="${td}">${esc(x.name)}</td><td style="${td};text-align:right"><b style="color:${x.pct>=sla?'#0F7B55':'#C62828'}">${x.pct}%</b></td></tr>`).join('')}</table>`:''}
   ${[['Cleaning issues',fails.filter(f=>isCleanIssue(f.it)),cleanReasons],['Fabric issues',fails.filter(f=>isFabricIssue(f.it)),fabricReasons]].map(([lbl,list,fn])=>`<div style="font-weight:bold;color:#4B2482;margin:16px 0 6px">${lbl} (${list.length})</div>
   ${list.length?`<table style="width:100%;border-collapse:collapse"><tr><th style="${td};text-align:left;background:#F4F2F8">Location</th><th style="${td};text-align:left;background:#F4F2F8">Check</th><th style="${td};text-align:left;background:#F4F2F8">What is wrong</th></tr>${list.map(({a,it,cids})=>`<tr><td style="${td}">${esc(a.name)}</td><td style="${td}">${esc(it.name)}</td><td style="${td}">${esc([fn(it).join(', '),it.note||''].filter(Boolean).join('. ')||'Fail')}${cids&&cids.length&&!noPhotos?'<br>'+cids.map(c=>`<img src="cid:${c}" alt="" style="width:200px;border-radius:4px;margin:4px 4px 0 0">`).join(''):''}</td></tr>`).join('')}</table>`:`<p style="font-size:13px">None recorded.</p>`}`).join('')}
@@ -2753,7 +2755,7 @@ function sessionText(s){
   (s.audits||[]).forEach(a=>a.items.forEach(it=>{ if(it.status==='fail') fails.push(`- ${a.name}: ${it.name} (${reasonTxt(it)})${isFaultItem(it)?' [maintenance fault]':''}`); }));
   return `${client?'CLIENT AUDIT':'INTERNAL AUDIT'}, Heathrow ${TID}, ${fmtDT(s.start)}
 Supervisor: ${s.auditor||s.ownerName||''}${client&&s.clientName?`\nClient rep: ${s.clientName}${s.clientOrg?', '+s.clientOrg:''}`:''}
-Areas audited: ${st.audits}. Score: ${st.pct}% (target ${slaFor()}%). Failures: ${st.failures}.
+Areas audited: ${st.audits}${tierCountTxt(s.audits||[])?' ('+tierCountTxt(s.audits||[])+')':''}. Score: ${st.pct}% (target ${slaFor()}%). Failures: ${st.failures}.
 ${fails.length?'Failed checks:\n'+fails.join('\n'):'No failed checks.'}`;
 }
 async function sendRoundEmail(id,quiet,toList){
@@ -3447,6 +3449,17 @@ function lockAdminHTML(){
     <div class="grid2"><div class="field"><label class="label" for="lk-code">Site code</label><input class="input" id="lk-code" type="password" autocomplete="new-password"></div><div class="field"><label class="label" for="lk-code2">Type it again</label><input class="input" id="lk-code2" type="password" autocomplete="new-password"></div></div>
     <button class="btn btn-act" onclick="setSiteCode()">🔒 Turn on the lock</button>
     <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">Change the code or turn the lock off</summary><p class="muted" style="font-size:13px;margin-top:6px">Firebase Console → Realtime Database → Data → find <b>siteKey</b> → delete it (🗑). The lock is now off and the app works as before. To lock again with a new code, use the form above; every phone then enters the new code once.</p></details></div>`;
+}
+
+// ════════════ v55: Gold / Silver / Bronze counts in round reports ════════════
+function tierRows(audits){ return TIERS.map(t=>{ const l=(audits||[]).filter(a=>a.tier===t.id), p=l.reduce((n,a)=>n+(+a.pass||0),0), f=l.reduce((n,a)=>n+(+a.fail||0),0); return {t,n:l.length,pct:pctOf(p,f),p,f}; }); }
+function tierCountTxt(audits){ return tierRows(audits).filter(x=>x.n).map(x=>`${x.t.name} ${x.n}`).join(', '); }
+function tierTableHTML(audits,kind){
+  const rows=tierRows(audits); if(!rows.some(x=>x.n)) return '';
+  const sla=slaFor(), col=x=>x.n?(x.pct>=sla?'#0F7B55':'#C62828'):'#6B6380';
+  if(kind==='pdf') return `<h2>By tier</h2><table><tr><th>Tier</th><th>Areas audited</th><th>Pass</th><th>Fail</th><th>Score</th></tr>${rows.map(x=>`<tr><td><b style="color:${x.t.hex}">${x.t.name}</b></td><td>${x.n}</td><td>${x.p}</td><td>${x.f}</td><td><b style="color:${col(x)}">${x.n?x.pct+'%':'–'}</b></td></tr>`).join('')}</table>`;
+  const td='padding:6px 8px;border-bottom:1px solid #E4DEEE;font-size:13px';
+  return `<div style="font-weight:bold;color:#4B2482;margin:16px 0 6px">By tier</div><table style="width:100%;border-collapse:collapse"><tr><th style="${td};text-align:left;background:#F4F2F8">Tier</th><th style="${td};background:#F4F2F8">Areas</th><th style="${td};background:#F4F2F8">Pass</th><th style="${td};background:#F4F2F8">Fail</th><th style="${td};text-align:right;background:#F4F2F8">Score</th></tr>${rows.map(x=>`<tr><td style="${td}"><b style="color:${x.t.hex}">${x.t.name}</b></td><td style="${td};text-align:center">${x.n}</td><td style="${td};text-align:center">${x.p}</td><td style="${td};text-align:center">${x.f}</td><td style="${td};text-align:right"><b style="color:${col(x)}">${x.n?x.pct+'%':'–'}</b></td></tr>`).join('')}</table>`;
 }
 
 </script>
