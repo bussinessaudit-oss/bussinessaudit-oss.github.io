@@ -1,7 +1,15 @@
 <!DOCTYPE html>
+<!--
+  Audit App
+  Copyright (c) 2026 Kulwinder Singh. All rights reserved.
+  This software is proprietary. No part of it may be copied, modified, published,
+  distributed or used to make other software without the written permission of the owner.
+-->
 <html lang="en-GB">
 <head>
 <meta charset="UTF-8">
+<meta name="author" content="Kulwinder Singh">
+<meta name="copyright" content="Copyright (c) 2026 Kulwinder Singh. All rights reserved.">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="theme-color" content="#24123F">
@@ -583,6 +591,16 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
     <button class="btn btn-full" id="cl-reset" style="margin-top:8px" onclick="clReset()">Reset to original</button>
   </div>
 </div>
+<div id="code-gate" hidden style="position:fixed;inset:0;z-index:3000;background:#24123F;color:#fff;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;color:#1D1530;border-radius:16px;padding:22px;max-width:380px;width:100%">
+    <h2 style="margin-bottom:6px">🔒 Enter site code</h2>
+    <p class="muted" style="font-size:14px;margin-bottom:12px">This phone needs the site code once. Ask your admin.</p>
+    <input class="input" id="gate-code" type="password" autocomplete="off" placeholder="Site code" onkeydown="if(event.key==='Enter') unlockWithCode()">
+    <label class="switch-row" style="margin-top:6px;font-size:13px"><input type="checkbox" onchange="$('gate-code').type=this.checked?'text':'password'"> Show code</label>
+    <p id="gate-msg" class="login-msg" style="margin-top:6px"></p>
+    <button class="btn btn-act btn-lg btn-full" id="gate-go" style="margin-top:8px" onclick="unlockWithCode()">Unlock</button>
+  </div>
+</div>
 <div class="modal" id="modal-fix">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fx-h">
     <div class="sheet-h"><h3 id="fx-h">Correct this round</h3><button class="x" onclick="closeModal('modal-fix')" aria-label="Close">×</button></div>
@@ -621,7 +639,7 @@ code.paste{display:block;white-space:pre;overflow-x:auto;background:#1F1533;colo
 
 <script>
 'use strict';
-const APP_VERSION='v51';
+const APP_VERSION='v54';
 const OFFICIAL_HOST='bussinessaudit-oss.github.io';
 const OFFICIAL_HOSTS=[OFFICIAL_HOST,'ksbusinessaudit.netlify.app'];   // the old Netlify address stays allowed as a backup
 
@@ -668,7 +686,7 @@ const FAIL_REASONS=[
   {g:'Fabric issues (building / maintenance)',r:['Broken / damaged','Light not working','Hand dryer not working','Lock / door faulty','Leak','Sign missing / damaged','Ceiling tile damaged / missing','Floor tile / surface damaged','Wall or panel damaged','Tap / flush not working','Dispenser broken','Toilet seat / fixture broken'],fault:1}];
 const FAULT_REASONS=new Set(FAIL_REASONS.filter(x=>x.fault).flatMap(x=>x.r));
 const cleanReasons=it=>(it.reasons||[]).filter(x=>!FAULT_REASONS.has(x)), fabricReasons=it=>(it.reasons||[]).filter(x=>FAULT_REASONS.has(x));
-const isCleanIssue=it=>it.status==='fail'&&(cleanReasons(it).length>0||!(it.reasons||[]).length), isFabricIssue=it=>it.status==='fail'&&fabricReasons(it).length>0;
+const isCleanIssue=it=>it.status==='fail'&&(cleanReasons(it).length>0||(!(it.reasons||[]).length&&!it.fab)), isFabricIssue=it=>it.status==='fail'&&(fabricReasons(it).length>0||(!!it.fab&&!cleanReasons(it).length));
 const faultOnly=reasons=>Array.isArray(reasons)&&reasons.length>0&&reasons.every(x=>FAULT_REASONS.has(x));
 
 // Zone 1 toilets built into the app
@@ -736,6 +754,9 @@ function areaKindOf(a){
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const encArg=s=>encodeURIComponent(s).replace(/'/g,'%27');
+// Security: record ids and picture data from the database are checked before use, so bad data cannot run code
+const SAFE_ID=/^[\w-]{1,100}$/, safeId=v=>typeof v==='string'&&SAFE_ID.test(v)?v:'';
+const safeImg=v=>typeof v==='string'&&/^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+$/.test(v)?v:'';
 const newId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const todayStr=()=>{const d=new Date(),off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,10);};
 const photoIdsOf=it=>[it&&it.photoId,...((it&&it.morePhotoIds)||[])].filter(Boolean);
@@ -817,15 +838,17 @@ let META={outbox:{},lastSync:{},lastTomb:{},legacyIds:null,legacyFlags:null,need
 const BLOBS=new Map();
 let CUR_UID=null;
 
-const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true,featWatermark:true,featShareFaults:true,featLockBtn:true,featHaptic:true,featIdleLock:true,featQR:false,featFabricEmail:true,engEmail:'',engName:'One Eng Team',headName:'',headEmail:'',featMonthly:true,monthlySent:''};
+const DEFAULT_SETTINGS={id:'settings',slaTarget:90,sla_gold:'',sla_silver:'',sla_bronze:'',managerEmails:'',hodEmail:'',logoMitie:'',logoHeathrow:'',target_gold:372,target_silver:124,target_bronze:124,alertMid:false,alertEnd:false,faultsNoScore:true,featWatermark:true,featShareFaults:true,featLockBtn:true,featHaptic:true,featIdleLock:true,featQR:false,featFabricEmail:true,engEmail:'',engName:'One Eng Team',headName:'',headEmail:'',featMonthly:true,monthlySent:'',featBeforeAfter:false};
 function settings(){ return {...DEFAULT_SETTINGS,...(ST.config.find(c=>c.id==='settings')||{})}; }
 function saveSettings(patch){ put('config',{...settings(),...patch,id:'settings'}); }
 function flags(){ return ST.config.find(c=>c.id==='flags')||{id:'flags'}; }
 function setFlag(k,v){ put('config',{...flags(),[k]:v,id:'flags'}); }
 
 function normalize(c,r){
+  ['sessionId','areaId','ownerId','auditorId','sigId','clientSigId','photoId','resolvePhotoId','device','logoMitie','logoHeathrow','by'].forEach(k=>{ if(r[k]!=null&&r[k]!=='') r[k]=safeId(String(r[k])); });
+  if(r.fix&&typeof r.fix==='object'){ r.fix.id=safeId(String(r.fix.id||'')); if(r.fix.photoId) r.fix.photoId=safeId(String(r.fix.photoId)); if(!r.fix.id) delete r.fix; }
   if(c==='areas'||c==='audits') r.items=Array.isArray(r.items)?r.items:(r.items&&typeof r.items==='object'?Object.values(r.items):[]);
-  if(c==='audits'){ r.pass=+r.pass||0; r.fail=+r.fail||0; r.na=+r.na||0; r.items.forEach(it=>{ if(it&&!it.status) it.status='none'; }); }
+  if(c==='audits'){ r.pass=+r.pass||0; r.fail=+r.fail||0; r.na=+r.na||0; r.items=r.items.filter(it=>it&&typeof it==='object'); r.items.forEach(it=>{ if(!it.status) it.status='none'; if(it.photoId) it.photoId=safeId(String(it.photoId)); if(it.morePhotoIds) it.morePhotoIds=(Array.isArray(it.morePhotoIds)?it.morePhotoIds:Object.values(it.morePhotoIds)).map(x=>safeId(String(x))).filter(Boolean); if(it.reasons&&!Array.isArray(it.reasons)) it.reasons=Object.values(it.reasons); }); }
   return r;
 }
 function serialize(c,r){ if(c==='sessions'){ const {audits,...rest}=r; return rest; } return r; }
@@ -858,6 +881,7 @@ function linkAudits(){
 }
 const lastAuditFor=id=>LAST[id]||null;
 function put(coll,rec){
+  if(!rec||!safeId(String(rec.id))) return;   // refuse records with unsafe ids
   rec.lu=Date.now();
   const arr=ST[coll], i=arr.findIndex(x=>x.id===rec.id);
   if(i>=0) arr[i]=rec; else arr.push(rec);
@@ -884,11 +908,11 @@ async function putBlob(dataUrl){
   const id=newId('b'); BLOBS.set(id,dataUrl); await KV.set('blob:'+id,dataUrl);
   META.outbox['blobs/'+id]={coll:'blobs',id,t:Date.now()}; persistSoon(); flushSoon(); return id;
 }
-async function getLocalBlob(id){ if(BLOBS.has(id)) return BLOBS.get(id); const v=await KV.get('blob:'+id); if(v) BLOBS.set(id,v); return v||''; }
+async function getLocalBlob(id){ if(BLOBS.has(id)) return safeImg(BLOBS.get(id)); const v=await KV.get('blob:'+id); if(v) BLOBS.set(id,v); return safeImg(v); }
 async function getBlob(id){
   if(!id) return '';
   const v=await getLocalBlob(id); if(v) return v;
-  if(DB&&ONLINE){ try{ const s=await withTimeout(DB.ref(ROOT+'/blobs/'+id).once('value'),15000); const d=s&&s.val(); if(d){ BLOBS.set(id,d); return d; } }catch(e){} }
+  if(DB&&ONLINE){ try{ const s=await withTimeout(DB.ref(ROOT+'/blobs/'+id).once('value'),15000); const d=safeImg(s&&s.val()); if(d){ BLOBS.set(id,d); return d; } }catch(e){} }
   return '';
 }
 const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
@@ -954,7 +978,7 @@ async function loadLocal(){
     lsSet('t3a_migrated','1');
     await persistNow();
   }
-  COLLS.forEach(c=>ST[c].forEach(r=>normalize(c,r)));
+  COLLS.forEach(c=>{ ST[c]=ST[c].filter(r=>r&&safeId(String(r.id))); ST[c].forEach(r=>normalize(c,r)); });
   linkAudits();
   CUR_UID=lsGet(LK('t3a_uid'));
 }
@@ -977,7 +1001,7 @@ function ensureFirebase(){
 async function signInFirebase(){
   if(!window.firebase||!firebase.auth) return;
   if(!/^https?:$/.test(location.protocol)){ AUTH_STATE='off'; return; }
-  try{ await withTimeout(Promise.resolve().then(()=>firebase.auth().signInAnonymously()),8000); AUTH_STATE='ok'; }
+  try{ await withTimeout(Promise.resolve().then(()=>firebase.auth().signInAnonymously()),8000); AUTH_STATE='ok'; if(typeof registerDevice==='function') registerDevice().then(ok=>{ if(ok&&!CLOUD_LOADED&&/PERMISSION|permission/.test(SYNC_ERR)){ loadTry=0; loadCloud(); } }); }
   catch(e){ AUTH_STATE='off'; SYNC_ERR=SYNC_ERR||''; }
 }
 let CLOUD_STEP='Starting';
@@ -1015,10 +1039,12 @@ async function loadCloud(){
   }catch(e){
     SYNC_ERR=String(e&&(e.code||e.message)||e); setSync();
     if(AUTH_STATE!=='ok') await signInFirebase();
+    else if(/PERMISSION|permission/.test(SYNC_ERR)&&typeof lockGate==='function') lockGate();
     loadTry++; setTimeout(loadCloud,Math.min(60000,5000*loadTry));
   }
 }
 function listen(){
+  if(window.__listening) return; window.__listening=true;
   COLLS.forEach(coll=>{
     const q=DB.ref(ROOT+'/'+coll).orderByChild('u').startAt(META.lastSync[coll]||0);
     q.on('child_added',s=>{ applyRemote(coll,s.key,s.val()); remoteChanged(); },e=>{ SYNC_ERR=String(e&&e.code||e); setSync(); });
@@ -1027,7 +1053,7 @@ function listen(){
   });
 }
 function applyRemote(coll,id,val){
-  if(!val||typeof val!=='object') return;
+  if(!val||typeof val!=='object'||!safeId(String(id))) return;
   const u=+val.u||0; if(u>(META.lastSync[coll]||0)) META.lastSync[coll]=u;
   if(META.outbox[coll+'/'+id]) return;              // a change made on this phone is still waiting to upload
   const rec=normalize(coll,{...val,id});
@@ -1169,7 +1195,7 @@ function showLogin(){
   document.body.classList.remove('has-round'); $('login-card').dataset.mode=''; renderLogin();
 }
 function userOptions(users){ return users.map(u=>`<option value="${esc(u.id)}">${esc(u.name)} (${ROLE_LABEL[u.role]||esc(u.role)})</option>`).join(''); }
-function loginFoot(){ const ow=officialWarning(); $('login-foot').innerHTML=(ow?`<span style="color:#FFB4B4;font-weight:600">${esc(ow)}</span><br>`:'')+'Heathrow Audit '+APP_VERSION+' · <button class="linkbtn" style="color:inherit;text-decoration:underline" onclick="checkUpdate(true)">Check for update</button>'; }
+function loginFoot(){ const ow=officialWarning(); $('login-foot').innerHTML=(ow?`<span style="color:#FFB4B4;font-weight:600">${esc(ow)}</span><br>`:'')+'© 2026 Kulwinder Singh. All rights reserved.<br>Audit app '+APP_VERSION+' · <button class="linkbtn" style="color:inherit;text-decoration:underline" onclick="checkUpdate(true)">Check for update</button>'; }
 const changeTermBtn=()=>`<button class="linkbtn" onclick="switchTerminal()">Not ${TERM?esc(TERM.name):''}? Change terminal</button>`;
 function renderLogin(){
   if(!TERM){ showTermPicker(); return; }
@@ -1179,7 +1205,7 @@ function renderLogin(){
     if(!CLOUD_LOADED){
       card.dataset.mode='wait';
       const err=SYNC_ERR||'', blocked=/PERMISSION|permission/.test(err);
-      const why=blocked?'Firebase is blocking the app. In Firebase Console open Authentication, then Sign-in method, and switch on Anonymous. Or put the database rules back to open for now.'
+      const why=blocked&&AUTH_STATE==='ok'?'This app is locked. Enter the site code to connect this phone.':blocked?'Firebase is blocking the app. In Firebase Console open Authentication, then Sign-in method, and switch on Anonymous. Or put the database rules back to open for now.'
         :err?err:(navigator.onLine?'':'This phone has no internet connection.');
       card.innerHTML=`<h2>Connecting</h2><p class="muted">The first sign-in on a phone needs internet. Keep this screen open.</p>
         <p style="margin-top:10px;font-size:14px"><b>Now:</b> ${esc(typeof CLOUD_STEP==='string'?CLOUD_STEP:'Starting')}</p>
@@ -1751,15 +1777,17 @@ async function saveAudit(){
   const s=openSession(); if(!s){ askStartRound(null,draft.targetId); return; }
   const answered=tg.items.filter((_,i)=>draft.results[i]&&draft.results[i].status).length;
   if(answered<tg.items.length&&!confirm(`${tg.items.length-answered} item(s) not answered. Save anyway?`)) return;
+  const noWhy=tg.items.map((n,i)=>({n,i,r:draft.results[i]||{}})).filter(x=>x.r.status==='fail'&&!(x.r.reasons||[]).length);
+  if(noWhy.length&&!confirm(`No reason chosen for: ${noWhy.map(x=>(x.i+1)+'. '+x.n).join(', ')}.\n\nTap Cancel to choose the reason (Cleaning or Fabric). Tap OK to save anyway (it will count under the tab that is open).`)) return;
   $('a-save').disabled=true;
   const m=me(), noScore=settings().faultsNoScore!==false; let pass=0,fail=0,na=0,faults=0; const items=[];
   for(let i=0;i<tg.items.length;i++){
-    const r=draft.results[i]||{}, isFail=r.status==='fail', reasons=isFail?(r.reasons||[]):[], fault=isFail&&noScore&&faultOnly(reasons);
+    const r=draft.results[i]||{}, isFail=r.status==='fail', reasons=isFail?(r.reasons||[]):[], fabNoReason=isFail&&!reasons.length&&r.tab==='fabric', fault=isFail&&noScore&&(faultOnly(reasons)||fabNoReason);
     if(r.status==='pass') pass++; else if(fault) faults++; else if(isFail) fail++; else if(r.status==='na') na++;
     const photoId=r.photo&&isFail?await putBlob(r.photo):'';
     const it={name:tg.items[i],status:r.status||'none',note:isFail?(r.note||''):'',photoId};
     if(photoId&&(r.more||[]).length){ const ids=[]; for(const p of r.more) ids.push(await putBlob(p)); it.morePhotoIds=ids; }
-    if(reasons.length) it.reasons=reasons; if(fault) it.fault=true; if(isFail&&!r.photo) it.noPhoto=true;
+    if(reasons.length) it.reasons=reasons; if(fault) it.fault=true; if(fabNoReason) it.fab=true; if(isFail&&!r.photo) it.noPhoto=true;
     items.push(it);
   }
   const issueCount=items.filter(x=>x.status==='fail').length, endedAt=new Date().toISOString();
@@ -1917,7 +1945,7 @@ function renderRepTabs(){
   const t=REP_FILTER.type;
   $('rep-tabs').innerHTML=[['','All'],['internal','Internal'],['client','Client']].map(([v,l])=>`<button role="tab" aria-selected="${!REP_VIEW&&t===v}" class="${!REP_VIEW&&t===v?'on':''} ${v==='client'?'client':''}" onclick="REP_VIEW='';REP_FILTER.type='${v}';renderSessions()">${l}</button>`).join('')
     +`<button role="tab" aria-selected="${REP_VIEW==='fabric'}" class="${REP_VIEW==='fabric'?'on':''}" onclick="REP_VIEW='fabric';renderSessions()">Fabric issues</button>`
-    +`<button role="tab" aria-selected="${REP_VIEW==='actions'}" class="${REP_VIEW==='actions'?'on':''}" onclick="REP_VIEW='actions';renderSessions()">Actions</button>`;
+    +(featOn('featBeforeAfter')?`<button role="tab" aria-selected="${REP_VIEW==='actions'}" class="${REP_VIEW==='actions'?'on':''}" onclick="REP_VIEW='actions';renderSessions()">Actions</button>`:'');
 }
 function renderSessionList(){
   const c=$('sessions-cards'); if(!c) return;
@@ -1974,6 +2002,7 @@ async function printFabricReport(){
 function renderSessions(){
   renderRepTabs();
   if(REP_VIEW==='fabric'){ $('rep-sub').textContent='Fabric issues found during audits'; renderFabric(); return; }
+  if(REP_VIEW==='actions'&&!featOn('featBeforeAfter')) REP_VIEW='';
   if(REP_VIEW==='actions'){ renderActions(); return; }
   $('rep-sub').textContent=isManager()?'Audits from every supervisor':'Your audits';
   const c=$('sessions-list');
@@ -2174,7 +2203,7 @@ function renderAdmin(){
 
   <h2 class="sec">Extra features</h2>
   <div class="panel"><p class="muted" style="margin-bottom:6px;font-size:14px">Switch each one on or off for everyone on ${esc(TERM.name)}.</p>
-    ${[['featWatermark','Stamp terminal, area, date and time on photos'],['featShareFaults','📲 Send faults button on reports (WhatsApp / Teams)'],['featLockBtn','🔒 Lock button at the top of the screen'],['featIdleLock','Lock the app after 30 minutes without use'],['featHaptic','Vibrate on Pass / Fail / N/A taps (Android)'],['featQR','🏷️ QR codes (scan button on Home, QR labels for admins)'],['featFabricEmail','🔧 Email fabric faults to the engineering team after each audit']].map(([k,l])=>`<label class="switch-row" style="margin-top:8px"><input type="checkbox" ${set[k]!==false?'checked':''} onchange="setFeature('${k}',this.checked,'${encArg(l)}')"> ${l}</label>`).join('')}
+    ${[['featWatermark','Stamp terminal, area, date and time on photos'],['featShareFaults','📲 Send faults button on reports (WhatsApp / Teams)'],['featLockBtn','🔒 Lock button at the top of the screen'],['featIdleLock','Lock the app after 30 minutes without use'],['featHaptic','Vibrate on Pass / Fail / N/A taps (Android)'],['featQR','🏷️ QR codes (scan button on Home, QR labels for admins)'],['featFabricEmail','🔧 Email fabric faults to the engineering team after each audit'],['featBeforeAfter','📷 Before & After photos for failed audits (Reports > Actions)']].map(([k,l])=>`<label class="switch-row" style="margin-top:8px"><input type="checkbox" ${set[k]!==false?'checked':''} onchange="setFeature('${k}',this.checked,'${encArg(l)}')"> ${l}</label>`).join('')}
     <div class="grid2" style="margin-top:12px"><div class="field"><label class="label" for="eng-name">Engineering team name</label><input class="input" id="eng-name" value="${esc(set.engName||'')}" placeholder="One Eng Team"></div>
     <div class="field"><label class="label" for="eng-email">Engineering team email</label><input class="input" id="eng-email" type="email" inputmode="email" value="${esc(set.engEmail||'')}" placeholder="team@company.com"></div></div>
     <button class="btn btn-brand" onclick="saveEng()">Save engineering contact</button></div>
@@ -2221,6 +2250,7 @@ function renderAdmin(){
     </ol>
     <code class="paste">${esc(rules)}</code>
     <button class="btn btn-sm" style="margin-top:8px" onclick="copyRules()">Copy rules</button></div>
+  ${lockAdminHTML()}
 
   <h2 class="sec">Recovery word</h2>
   <div class="panel"><p class="muted" style="font-size:14px;margin-bottom:10px">${set.recoveryHash?'Set. You need it if you forget your PIN.':'<b style="color:var(--fail)">Not set yet.</b> Until you set one, anyone who reads the app code could reset your PIN.'}</p>
@@ -2258,10 +2288,15 @@ function rulesText(){
       "tomb":     { ".write": "auth != null", "$coll": { ".indexOn": [".value"] } }
     }`;
   const order=[...TERMINALS].sort((a,b)=>(a.root==='audit_v2'?0:1)-(b.root==='audit_v2'?0:1));
+  // Device code lock: until a site code is set, any signed-in phone works as before. Once set, only phones that entered the code.
+  const OK="auth != null && (!root.child('siteKey').exists() || root.child('devices').child(auth.uid).val() === root.child('siteKey').val())";
+  const lk=blk.split('"auth != null').join('"'+OK);
   return `{
   "rules": {
-${order.map(t=>`    "${t.root}": ${blk}`).join(',\n')},
-    "t3audit": { ".read": "auth != null" }
+    "siteKey": { ".read": false, ".write": "auth != null && !data.exists() && newData.isString() && newData.val().length >= 8" },
+    "devices": { "$uid": { ".read": "auth != null && auth.uid === $uid", ".write": "auth != null && auth.uid === $uid && root.child('siteKey').exists() && newData.val() === root.child('siteKey').val()" } },
+${order.map(t=>`    "${t.root}": ${lk}`).join(',\n')},
+    "t3audit": { ".read": "${OK}" }
   }
 }`;
 }
@@ -3368,6 +3403,51 @@ async function addMorePhotos(i,input){
   draft.results[i]={...(draft.results[i]||{}),more}; renderAuditItems(); saveDraft(true); toast(`${1+more.length} photos on this check`);
 }
 function removeMore(i,k){ const r=draft.results[i]||{}, more=[...(r.more||[])]; more.splice(k,1); draft.results[i]={...r,more}; renderAuditItems(); saveDraft(); }
+
+// ════════════ v54: device code lock ════════════
+// Once the admin sets a site code, the database only talks to phones that have entered it (checked by the Firebase rules).
+const CODE_KEY='t3a_sitecode';
+const siteCode=()=>{ try{ return localStorage.getItem(CODE_KEY)||''; }catch(e){ return ''; } };
+function fbUid(){ try{ const u=firebase.auth().currentUser; return (u&&u.uid)||''; }catch(e){ return ''; } }
+async function registerDevice(code){
+  code=code||siteCode(); const uid=fbUid(); if(!code||!uid||!DB) return false;
+  try{ await withTimeout(DB.ref('devices/'+uid).set(code),15000); return true; }catch(e){ return false; }
+}
+let GATE_OPEN=false;
+function lockGate(){ if(GATE_OPEN||AUTH_STATE!=='ok') return; GATE_OPEN=true; $('gate-msg').textContent=siteCode()?'The site code has changed. Enter the new code.':''; $('code-gate').hidden=false; setTimeout(()=>{ try{ $('gate-code').focus(); }catch(e){} },100); }
+let GATE_TRIES=0;
+async function unlockWithCode(){
+  const c=$('gate-code').value.trim(); if(c.length<8){ $('gate-msg').textContent='The code has at least 8 characters.'; return; }
+  if(GATE_TRIES>=5){ $('gate-msg').textContent='Too many tries. Wait a minute, then try again.'; setTimeout(()=>{ GATE_TRIES=0; },60000); return; }
+  $('gate-go').disabled=true; $('gate-msg').textContent='Checking…';
+  const ok=await registerDevice(c); $('gate-go').disabled=false;
+  if(!ok){ GATE_TRIES++; $('gate-msg').textContent='That code is not right.'; return; }
+  try{ localStorage.setItem(CODE_KEY,c); }catch(e){}
+  GATE_OPEN=false; $('code-gate').hidden=true; $('gate-code').value=''; toast('Phone unlocked');
+  SYNC_ERR=''; loadTry=0; if(!CLOUD_LOADED) loadCloud(); else location.reload();
+}
+async function setSiteCode(){
+  if(!isAdmin()) return; const a=$('lk-code').value.trim(), b=$('lk-code2').value.trim();
+  if(a.length<8){ toast('Use at least 8 characters (letters and numbers)',true); return; }
+  if(!/[A-Za-z]/.test(a)||!/\d/.test(a)){ toast('Mix letters and numbers',true); return; }
+  if(a!==b){ toast('The two codes are different',true); return; }
+  if(!DB||!ONLINE||AUTH_STATE!=='ok'){ toast('Connect to the internet first',true); return; }
+  if(!confirm('Turn on the lock? Every other phone will need this code once. Keep the code safe: it cannot be changed from the app.')) return;
+  try{ await withTimeout(DB.ref('siteKey').set(a),15000); }
+  catch(e){ toast('Could not set the code. Publish the new rules first (step 1). If a code is already set, see "Change the code".',true); return; }
+  const ok=await registerDevice(a);
+  try{ localStorage.setItem(CODE_KEY,a); }catch(e){}
+  logAct('Device lock switched on','Site code set'); persistNow(); toast(ok?'Lock is on. This phone is unlocked. Reloading…':'Code set, but this phone did not register. Reloading…',!ok); setTimeout(()=>location.reload(),1800);
+}
+function lockAdminHTML(){
+  const has=!!siteCode();
+  return `<h2 class="sec">Device code lock</h2><div class="panel"><p class="muted" style="font-size:14px;margin-bottom:8px">Stops anyone outside the team reading or changing the data, even if they have the link. Each phone types the site code once.</p>
+    <div class="kv"><span>This phone</span><b style="color:${has?'var(--pass)':'var(--muted)'}">${has?'Has the code ✓':'No code yet'}</b></div>
+    <ol class="steps" style="margin-top:8px"><li>Copy the rules above and publish them in Firebase (they work exactly as now until a code is set).</li><li>Type a code below (8+ letters and numbers) and tap <b>Turn on the lock</b>.</li><li>Give the code to your team in person. Each phone asks for it once.</li></ol>
+    <div class="grid2"><div class="field"><label class="label" for="lk-code">Site code</label><input class="input" id="lk-code" type="password" autocomplete="new-password"></div><div class="field"><label class="label" for="lk-code2">Type it again</label><input class="input" id="lk-code2" type="password" autocomplete="new-password"></div></div>
+    <button class="btn btn-act" onclick="setSiteCode()">🔒 Turn on the lock</button>
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">Change the code or turn the lock off</summary><p class="muted" style="font-size:13px;margin-top:6px">Firebase Console → Realtime Database → Data → find <b>siteKey</b> → delete it (🗑). The lock is now off and the app works as before. To lock again with a new code, use the form above; every phone then enters the new code once.</p></details></div>`;
+}
 
 </script>
 </body>
